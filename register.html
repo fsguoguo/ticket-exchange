@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>注册账号</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --surface-2: #f9fafb;
+      --border: #e8eaed;
+      --text: #111827;
+      --muted: #6b7280;
+      --muted-2: #9ca3af;
+      --accent: #3b82f6;
+      --accent-dim: rgba(59, 130, 246, 0.10);
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .shell {
+      width: min(680px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .hero, .panel {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+
+    .hero {
+      padding: 24px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: fit-content;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 3.5vw, 2.4rem);
+      line-height: 1.18;
+      letter-spacing: -0.01em;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.65;
+    }
+
+    .guides {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .guide-card {
+      padding: 12px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: grid;
+      gap: 6px;
+    }
+
+    .guide-card strong { font-size: 0.94rem; }
+
+    .guide-card span {
+      color: var(--muted-2);
+      line-height: 1.55;
+      font-size: 0.88rem;
+    }
+
+    .hint-box {
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.9rem;
+    }
+
+    .panel {
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel h2 { margin: 0; font-size: 1.15rem; }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 0.92rem;
+    }
+
+    form { display: grid; gap: 8px; }
+
+    .field {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      min-height: 44px;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+
+    .field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      touch-action: manipulation;
+      transition: opacity 120ms ease;
+    }
+
+    .btn:hover { opacity: 0.85; }
+
+    .btn-primary {
+      color: #ffffff;
+      background: var(--accent);
+    }
+
+    .btn-secondary {
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--surface-2); opacity: 1; }
+
+    .status {
+      min-height: 1.4em;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.9rem;
+    }
+
+    .status.error { color: #dc2626; }
+    .status.success { color: #065f46; }
+
+    .footnote {
+      color: var(--muted-2);
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    .steps { display: grid; gap: 8px; margin-top: 4px; }
+
+    .step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 11px 12px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+    }
+
+    .step-index {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.82rem;
+      flex: 0 0 auto;
+    }
+
+    .step strong { display: block; margin-bottom: 3px; font-size: 0.9rem; }
+
+    .step span { color: var(--muted); line-height: 1.55; font-size: 0.88rem; }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      .guides { grid-template-columns: 1fr; }
+      body { padding: 14px; }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px max(10px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+      }
+
+      .shell { width: 100%; gap: 8px; }
+
+      .panel, .hero { padding: 14px; }
+      .panel { gap: 10px; }
+      .panel h2, h1 { font-size: 1.2rem; line-height: 1.24; }
+
+      .field { min-height: 44px; font-size: 16px; }
+
+      .actions { display: grid; grid-template-columns: 1fr; gap: 6px; }
+      .btn { width: 100%; min-height: 42px; }
+    }
+
+    @media (hover: none) {
+      .btn:hover { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <h2>创建新账号</h2>
+
+      <form id="registerForm">
+        <input class="field" name="username" placeholder="用户名" autocomplete="username" pattern="[!-~]+" title="只能输入英文、数字和符号" required />
+        <input class="field" name="password" type="password" placeholder="密码，至少 6 位" autocomplete="new-password" pattern="[!-~]+" title="只能输入英文、数字和符号" required />
+        <input class="field" name="confirmPassword" type="password" placeholder="再次输入密码确认" autocomplete="new-password" required />
+        <div class="actions">
+          <button class="btn btn-primary" type="submit">注册并登录</button>
+          <a class="btn btn-secondary" href="./index.html">返回首页</a>
+        </div>
+      </form>
+
+      <div class="status" id="statusText">注册成功后会自动返回首页。</div>
+    </section>
+  </main>
+
+  <script src="./config.js"></script>
+  <script>
+    const runtimeConfig = window.__STARSEA_CONFIG__ || {};
+    const configuredApiBase = String(runtimeConfig.apiBase || window.__STARSEA_API_BASE__ || '').trim();
+    const localApiBase = (location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      ? 'http://localhost:3000'
+      : '';
+    const apiBase = configuredApiBase || localApiBase;
+
+    function toApiUrl(path) {
+      const normalizedPath = String(path || '').startsWith('/') ? path : `/${path}`;
+      return `${apiBase}${normalizedPath}`;
+    }
+
+    const form = document.getElementById('registerForm');
+    const statusText = document.getElementById('statusText');
+    const tokenKey = 'starsea:token';
+
+    function setStatus(message, kind = '') {
+      statusText.textContent = message;
+      statusText.className = `status ${kind}`.trim();
+    }
+
+    function isAsciiCredential(value) {
+      return /^[\x21-\x7E]+$/.test(value);
+    }
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      const username = String(formData.get('username') || '').trim();
+      const password = String(formData.get('password') || '').trim();
+      const confirmPassword = String(formData.get('confirmPassword') || '').trim();
+
+      if (!username || !password || !confirmPassword) {
+        setStatus('请先把用户名和密码填完整。', 'error');
+        return;
+      }
+      if (!isAsciiCredential(username) || !isAsciiCredential(password)) {
+        setStatus('用户名和密码只能包含英文、数字和符号。', 'error');
+        return;
+      }
+      if (password.length < 6) {
+        setStatus('密码至少需要 6 位。', 'error');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setStatus('两次输入的密码不一致。', 'error');
+        return;
+      }
+
+      try {
+        setStatus('正在创建账号，请稍等…');
+        const response = await fetch(toApiUrl('/api/session/register'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || '注册失败');
+        }
+        localStorage.setItem(tokenKey, payload.token);
+        setStatus(`注册成功，正在返回首页：${payload.user?.name || username}`, 'success');
+        window.setTimeout(() => {
+          window.location.href = './index.html';
+        }, 900);
+      } catch (error) {
+        setStatus(error.message || '注册失败', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

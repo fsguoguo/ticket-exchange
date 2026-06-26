@@ -1,0 +1,1143 @@
+{
+  "nextUserId": 4,
+  "nextListingId": 9,
+  "nextNotificationId": 1,
+  "users": [
+    {
+      "id": "u1",
+      "name": "admin",
+      "role": "admin"
+    }
+  ],
+  "tokens": {},
+  "listings": [
+    {
+      "id": 1,
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "kind": "transfer",
+      "kindLabel": "出票",
+      "title": "MyGO!!!!! 现场票转让",
+      "subtitle": "想出一张二层看台票，临近开演前确认即可。",
+      "city": "东京",
+      "venue": "武道馆",
+      "date": "2026-08-15",
+      "price": "原价 9800 日元",
+      "contact": "X / @mygo_ticket_01",
+      "note": "优先能快速确认的同好，支持站内预留。",
+      "tags": [
+        "二层",
+        "快速确认",
+        "同好优先"
+      ],
+      "accent": "#ff6aa2",
+      "ownerId": "u1",
+      "ownerName": "星海管理员",
+      "status": "approved",
+      "favoritesBy": [
+        "u2"
+      ],
+      "reviewLog": [
+        {
+          "at": "2026-06-24T10:00:00.000Z",
+          "action": "approved",
+          "by": "系统",
+          "note": "样例数据"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "kind": "seeking",
+      "kindLabel": "收票",
+      "title": "Aqours Final 含泪收票",
+      "subtitle": "求一张能现场见证最终场的门票，价格可协商。",
+      "city": "大阪",
+      "venue": "京瓷巨蛋",
+      "date": "2026-09-02",
+      "price": "预算 15000 日元内",
+      "contact": "Telegram / @ll_buyer88",
+      "note": "可接受电子票或纸票，先沟通座位和票型。",
+      "tags": [
+        "最终场",
+        "可协商",
+        "电子票"
+      ],
+      "accent": "#6de2ff",
+      "ownerId": "u2",
+      "ownerName": "星海同好",
+      "status": "approved",
+      "favoritesBy": [],
+      "reviewLog": [
+        {
+          "at": "2026-06-24T10:05:00.000Z",
+          "action": "approved",
+          "by": "系统",
+          "note": "样例数据"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "kind": "swap",
+      "kindLabel": "换票",
+      "title": "Roselia 双日互换",
+      "subtitle": "A 日看台换 B 日更近位置，想互补票档。",
+      "city": "名古屋",
+      "venue": "爱知天空竞技场",
+      "date": "2026-07-21",
+      "price": "等值互换",
+      "contact": "QQ / 2345xxxx",
+      "note": "希望同样是 Roselia 粉，互相确认后交换。",
+      "tags": [
+        "双日",
+        "等值互换",
+        "Roselia"
+      ],
+      "accent": "#ffd36e",
+      "ownerId": "u2",
+      "ownerName": "星海同好",
+      "status": "approved",
+      "favoritesBy": [],
+      "reviewLog": [
+        {
+          "at": "2026-06-24T10:08:00.000Z",
+          "action": "approved",
+          "by": "系统",
+          "note": "样例数据"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "kind": "transfer",
+      "kindLabel": "出票",
+      "title": "Liella! 城市巡演单票",
+      "subtitle": "单张转出，适合临时补位的同好。",
+      "city": "横滨",
+      "venue": "Pacifico Yokohama",
+      "date": "2026-10-06",
+      "price": "面议",
+      "contact": "微博私信 / @ll_kkk",
+      "note": "可优先给能当日确认的买家。",
+      "tags": [
+        "单票",
+        "可面议",
+        "临近场次"
+      ],
+      "accent": "#9a7bff",
+      "ownerId": "u3",
+      "ownerName": "审稿小组",
+      "status": "approved",
+      "favoritesBy": [],
+      "reviewLog": [
+        {
+          "at": "2026-06-24T10:12:00.000Z",
+          "action": "approved",
+          "by": "系统",
+          "note": "样例数据"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "kind": "seeking",
+      "kindLabel": "收票",
+      "title": "Poppin'Party 想补一张内场",
+      "subtitle": "求内场或前排，预算弹性较大。",
+      "city": "东京",
+      "venue": "代代木竞技场",
+      "date": "2026-11-12",
+      "price": "预算 20000 日元内",
+      "contact": "Discord / hana#2211",
+      "note": "如果有退票也可以第一时间联系。",
+      "tags": [
+        "内场",
+        "前排",
+        "弹性预算"
+      ],
+      "accent": "#77f0b3",
+      "ownerId": "u3",
+      "ownerName": "审稿小组",
+      "status": "approved",
+      "favoritesBy": [],
+      "reviewLog": [
+        {
+          "at": "2026-06-24T10:15:00.000Z",
+          "action": "approved",
+          "by": "系统",
+          "note": "样例数据"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "kind": "swap",
+      "kindLabel": "换票",
+      "title": "虹咲演唱会互换座位",
+      "subtitle": "想用偏后排换更稳定的同行位置。",
+      "city": "京都",
+      "venue": "Kyoto Pulse Plaza",
+      "date": "2026-12-01",
+      "price": "可补差价",
+      "contact": "站内消息 / niji_swap",
+      "note": "希望同样是虹咲粉，方便后续沟通。",
+      "tags": [
+        "同行",
+        "补差价",
+        "站内消息"
+      ],
+      "accent": "#ff9b6a",
+      "ownerId": "u3",
+      "ownerName": "审稿小组",
+      "status": "approved",
+      "favoritesBy": [],
+      "reviewLog": [
+        {
+          "at": "2026-06-24T10:18:00.000Z",
+          "action": "approved",
+          "by": "系统",
+          "note": "样例数据"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "franchise": "imas",
+      "franchiseLabel": "IM@S",
+      "kind": "transfer",
+      "kindLabel": "出票",
+      "title": "THE IDOLM@STER 765 票转让",
+      "subtitle": "IM@S 场次出票，想给能快速确认的同好。",
+      "city": "福冈",
+      "venue": "Marine Messe",
+      "date": "2026-11-28",
+      "price": "原价 10500 日元",
+      "contact": "站内消息 / imas_765",
+      "note": "优先老粉，确认快可直接联系。",
+      "tags": [
+        "IM@S",
+        "765",
+        "快速确认"
+      ],
+      "accent": "#ff8f70",
+      "ownerId": "u1",
+      "ownerName": "星海管理员",
+      "status": "approved",
+      "favoritesBy": [],
+      "reviewLog": [
+        {
+          "at": "2026-06-25T09:00:00.000Z",
+          "action": "published",
+          "by": "星海管理员",
+          "note": "直接发布"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "franchise": "other",
+      "franchiseLabel": "其他",
+      "kind": "transfer",
+      "kindLabel": "出票",
+      "title": "Vocaloid Live 余票",
+      "subtitle": "其他企划的余票，适合临时补位。",
+      "city": "大阪",
+      "venue": "大阪城 Hall",
+      "date": "2026-12-14",
+      "price": "12000 日元",
+      "contact": "微博私信 / @vocaloid_live",
+      "note": "接受现场交接，票面信息可先看图。",
+      "tags": [
+        "其他",
+        "现场交接",
+        "补位"
+      ],
+      "accent": "#8bd3ff",
+      "ownerId": "u2",
+      "ownerName": "星海同好",
+      "status": "rejected",
+      "favoritesBy": [],
+      "reviewLog": [
+        {
+          "at": "2026-06-25T09:10:00.000Z",
+          "action": "rejected",
+          "by": "审稿小组",
+          "note": "示例拒绝原因：信息不完整"
+        }
+      ]
+    }
+  ],
+  "notifications": [],
+  "liveOptions": [
+    {
+      "id": "e672706f42dc306343",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "RAISE A SUILEN LIVE 2026「Boot IGNITION」 ライブ",
+      "date": "2026-06-26",
+      "city": "SGC",
+      "venue": "SGC HALL ARIAKE・神戸国際会館こくさいホール・AsiaWorld-Expo, Hall 10",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/ras_2026_hongkong/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "c679976333f50283ef",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Anime Expo 2026「J-POP SOUND CAPSULE」 ライブ",
+      "date": "2026-07-02",
+      "city": "Crypto.com",
+      "venue": "Crypto.com Arena",
+      "tags": [
+        "Roselia"
+      ],
+      "url": "https://bang-dream.com/events/jsc2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "7e63e1a5cdbbd6ebe4",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "夢限大みゅーたいぷ 47都道府県制覇の旅「スーパーポジション 〜ゆめんそーれ沖縄〜」 ライブ",
+      "date": "2026-07-04",
+      "city": "沖縄",
+      "venue": "沖縄県",
+      "tags": [
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/yumemita_superposition_okinawa",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "46d2668ad6f2acf4d7",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！サンシャイン!! Guilty Kiss × Saint Snow TWO-MAN LIVE \"VS\"",
+      "date": "2026-07-04",
+      "city": "ぴあアリーナMM",
+      "venue": "ぴあアリーナMM",
+      "tags": [
+        "官方",
+        "Aqours",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/uranohoshi/live/live_detail.php?p=GKSS_TWO-MAN",
+      "source": "https://www.lovelive-anime.jp/uranohoshi/live.php"
+    },
+    {
+      "id": "da583d93a9f6c00845",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "夢限大みゅーたいぷ 47都道府県制覇の旅「スーパーポジション 〜ゆめんそーれ沖縄〜」 ライブ",
+      "date": "2026-07-05",
+      "city": "沖縄",
+      "venue": "沖縄県",
+      "tags": [
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/yumemita_superposition_okinawa",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "8622e7648b72988a16",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！サンシャイン!! Guilty Kiss × Saint Snow TWO-MAN LIVE \"VS\"",
+      "date": "2026-07-05",
+      "city": "ぴあアリーナMM",
+      "venue": "ぴあアリーナMM",
+      "tags": [
+        "官方",
+        "Aqours",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/uranohoshi/live/live_detail.php?p=GKSS_TWO-MAN",
+      "source": "https://www.lovelive-anime.jp/uranohoshi/live.php"
+    },
+    {
+      "id": "7ded59d844095c1b44",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Animelo Summer Live 2026 -Messenger- ライブ",
+      "date": "2026-07-10",
+      "city": "幕張",
+      "venue": "幕張メッセ",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/asl2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "65b46be9a2393b0b3e",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Animelo Summer Live 2026 -Messenger- ライブ",
+      "date": "2026-07-11",
+      "city": "幕張",
+      "venue": "幕張メッセ",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/asl2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "db81808d385d9cd0bd",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！蓮ノ空女学院スクールアイドルクラブ 6th Live Dream ～Bloom Garden Party～",
+      "date": "2026-07-11",
+      "city": "福岡",
+      "venue": "＜Bloom Stage／福岡・マリンメッセ福岡B館> ＜Garden Stage／兵庫・神戸ワールド記念ホール> ＜Party Stage／神奈川・ぴあアリーナMM> ＜Bloom Garden Party Stage／埼玉・ベルーナドーム>",
+      "tags": [
+        "官方",
+        "蓮ノ空",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/hasunosora/live-event/live_detail.php?p=6thBGP",
+      "source": "https://www.lovelive-anime.jp/hasunosora/live-event/"
+    },
+    {
+      "id": "5182881979ac68380f",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Animelo Summer Live 2026 -Messenger- ライブ",
+      "date": "2026-07-12",
+      "city": "幕張",
+      "venue": "幕張メッセ",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/asl2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "11f77c381260bff2f0",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "BEAT AX -SUMMER EDITION 2026- ライブ",
+      "date": "2026-07-12",
+      "city": "横浜",
+      "venue": "Kアリーナ横浜",
+      "tags": [
+        "RAISE A SUILEN",
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/events/25941/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "f70e881648f172bdc9",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！蓮ノ空女学院スクールアイドルクラブ 6th Live Dream ～Bloom Garden Party～",
+      "date": "2026-07-12",
+      "city": "福岡",
+      "venue": "＜Bloom Stage／福岡・マリンメッセ福岡B館> ＜Garden Stage／兵庫・神戸ワールド記念ホール> ＜Party Stage／神奈川・ぴあアリーナMM> ＜Bloom Garden Party Stage／埼玉・ベルーナドーム>",
+      "tags": [
+        "官方",
+        "蓮ノ空",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/hasunosora/live-event/live_detail.php?p=6thBGP",
+      "source": "https://www.lovelive-anime.jp/hasunosora/live-event/"
+    },
+    {
+      "id": "cda1e5cce78012afaf",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "MyGO!!!!! 9th LIVE「つなぎ目の向こうに」 ライブ",
+      "date": "2026-07-18",
+      "city": "ぴあアリーナMM",
+      "venue": "ぴあアリーナMM",
+      "tags": [
+        "MyGO!!!!!"
+      ],
+      "url": "https://bang-dream.com/events/mygo_9th/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "d7059f925f6edee75e",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "MyGO!!!!! 9th LIVE「つなぎ目の向こうに」 ライブ",
+      "date": "2026-07-19",
+      "city": "ぴあアリーナMM",
+      "venue": "ぴあアリーナMM",
+      "tags": [
+        "MyGO!!!!!"
+      ],
+      "url": "https://bang-dream.com/events/mygo_9th/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "18be4b0ec2c17def01",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Ave Mujica LIVE TOUR 2026「Exitus」 ライブ",
+      "date": "2026-08-08",
+      "city": "Nagoya",
+      "venue": "Zepp Fukuoka、Zepp Namba、Zepp Nagoya、Zepp Haneda (TOKYO)、SGC HALL ARIAKE、國立體育大學綜合體育館（林口體育館）",
+      "tags": [
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/avemujica_livetour_taipei/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "79052ff7f23c8c23fb",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "KIMCHIKURA Fes '26 ライブ",
+      "date": "2026-08-08",
+      "city": "Seoul",
+      "venue": "Seoul, Grand Peace Palace (at Kyung Hee University)",
+      "tags": [
+        "Morfonica",
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/events/kimchikura-fes-26/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "94a371048ba90fa37c",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "LuckyFes'26 ライブ",
+      "date": "2026-08-08",
+      "city": "国営ひたち海浜公園",
+      "venue": "国営ひたち海浜公園",
+      "tags": [
+        "RAISE A SUILEN",
+        "MyGO!!!!!"
+      ],
+      "url": "https://bang-dream.com/events/luckyfes2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "f5aa2679d4909de7ed",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "MyGO!!!!!の「迷子集会」出張版 第三弾 - 日常の築葉書 - イベント",
+      "date": "2026-08-08",
+      "city": "OSAKA",
+      "venue": "COOL JAPAN PARK OSAKA WWホール、鴻巣市文化センター（クレアこうのす） 大ホール",
+      "tags": [
+        "MyGO!!!!!"
+      ],
+      "url": "https://bang-dream.com/events/maigocenter-event3/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "3421670adb22416607",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Ave Mujica LIVE TOUR 2026「Exitus」 ライブ",
+      "date": "2026-08-09",
+      "city": "Nagoya",
+      "venue": "Zepp Fukuoka、Zepp Namba、Zepp Nagoya、Zepp Haneda (TOKYO)、SGC HALL ARIAKE、國立體育大學綜合體育館（林口體育館）",
+      "tags": [
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/avemujica_livetour_taipei/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "b0bb315ec2677ae0fd",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "LuckyFes'26 ライブ",
+      "date": "2026-08-09",
+      "city": "国営ひたち海浜公園",
+      "venue": "国営ひたち海浜公園",
+      "tags": [
+        "RAISE A SUILEN",
+        "MyGO!!!!!"
+      ],
+      "url": "https://bang-dream.com/events/luckyfes2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "7f93538bd6776812bd",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "LuckyFes'26 ライブ",
+      "date": "2026-08-10",
+      "city": "国営ひたち海浜公園",
+      "venue": "国営ひたち海浜公園",
+      "tags": [
+        "RAISE A SUILEN",
+        "MyGO!!!!!"
+      ],
+      "url": "https://bang-dream.com/events/luckyfes2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "a48dfc58d6df96409b",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "LuckyFes'26 ライブ",
+      "date": "2026-08-11",
+      "city": "国営ひたち海浜公園",
+      "venue": "国営ひたち海浜公園",
+      "tags": [
+        "RAISE A SUILEN",
+        "MyGO!!!!!"
+      ],
+      "url": "https://bang-dream.com/events/luckyfes2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "d31abb866356c0be99",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "RAISE A SUILEN LIVE 2026「Boot IGNITION」 ライブ",
+      "date": "2026-08-14",
+      "city": "SGC",
+      "venue": "SGC HALL ARIAKE・神戸国際会館こくさいホール・AsiaWorld-Expo, Hall 10",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/ras_2026_hongkong/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "d19b2e09130b04c334",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "SUMMER SONIC 2026 ライブ",
+      "date": "2026-08-14",
+      "city": "幕張",
+      "venue": "万博記念公園、ZOZOマリンスタジアム＆幕張メッセ",
+      "tags": [
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/events/summer-sonic-2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "b0d492f613c5b523f1",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "RAISE A SUILEN LIVE 2026「Boot IGNITION」 ライブ",
+      "date": "2026-08-15",
+      "city": "SGC",
+      "venue": "SGC HALL ARIAKE・神戸国際会館こくさいホール・AsiaWorld-Expo, Hall 10",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/ras_2026_hongkong/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "c3f50af27761c987e6",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "SUMMER SONIC 2026 ライブ",
+      "date": "2026-08-15",
+      "city": "幕張",
+      "venue": "万博記念公園、ZOZOマリンスタジアム＆幕張メッセ",
+      "tags": [
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/events/summer-sonic-2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "6a2e0814c277ba0be2",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "SUMMER SONIC 2026 ライブ",
+      "date": "2026-08-16",
+      "city": "幕張",
+      "venue": "万博記念公園、ZOZOマリンスタジアム＆幕張メッセ",
+      "tags": [
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/events/summer-sonic-2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "c677a183bdd0a9da5f",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "TVアニメ「バンドリ！ ゆめ∞みた」放送記念フリーライブ「新宿着陸計画」 ライブ",
+      "date": "2026-08-22",
+      "city": "TOKYO",
+      "venue": "東急歌舞伎町タワーステージ・Zepp Shinjuku (TOKYO)",
+      "tags": [
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/yumemita_2026free_day1/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "1a5263c013566641d5",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Roselia「Lehre der Rose」 - Roselia 10th Anniversary Best Album「Lehre der Rose」リリース記念ライブ ライブ",
+      "date": "2026-08-29",
+      "city": "有明",
+      "venue": "有明アリーナ",
+      "tags": [
+        "Roselia"
+      ],
+      "url": "https://bang-dream.com/events/lehre-der-rose/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "94cee1622a4c87ff92",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Roselia「Lehre der Rose」 - Roselia 10th Anniversary Best Album「Lehre der Rose」リリース記念ライブ ライブ",
+      "date": "2026-08-30",
+      "city": "有明",
+      "venue": "有明アリーナ",
+      "tags": [
+        "Roselia"
+      ],
+      "url": "https://bang-dream.com/events/lehre-der-rose/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "12e1f89eaf4cf50bd9",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "BM-ECHOES FESTIVAL 2026 ライブ",
+      "date": "2026-09-05",
+      "city": "Osaka",
+      "venue": "Zepp Osaka Bayside、Zepp Nagoya",
+      "tags": [
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/events/bm-echoes-festival-2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "9096e645f6466d1f86",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！スーパースター!! Liella! 結女体育祭",
+      "date": "2026-09-05",
+      "city": "東京",
+      "venue": "東京体育館 メインアリーナ",
+      "tags": [
+        "官方",
+        "Liella!",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/yuigaoka/live/live_detail.php?p=taiikusai",
+      "source": "https://www.lovelive-anime.jp/yuigaoka/live/"
+    },
+    {
+      "id": "0566a0dc2ac1ff54ab",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "BM-ECHOES FESTIVAL 2026 ライブ",
+      "date": "2026-09-06",
+      "city": "Osaka",
+      "venue": "Zepp Osaka Bayside、Zepp Nagoya",
+      "tags": [
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/events/bm-echoes-festival-2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "8bdc3bc4c13bb63323",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！スーパースター!! Liella! 結女体育祭",
+      "date": "2026-09-06",
+      "city": "東京",
+      "venue": "東京体育館 メインアリーナ",
+      "tags": [
+        "官方",
+        "Liella!",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/yuigaoka/live/live_detail.php?p=taiikusai",
+      "source": "https://www.lovelive-anime.jp/yuigaoka/live/"
+    },
+    {
+      "id": "875f8e61cf2693339d",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "FEST. INAZUMA 2026 ライブ",
+      "date": "2026-09-19",
+      "city": "滋賀県草津市",
+      "venue": "滋賀県草津市 烏丸半島芝生広場 (滋賀県琵琶湖博物館西隣 多目的広場)",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/fest-inazuma2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "b7eee1510eb422cdc5",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "いきづらい部！ 2nd LIVE Dou-Da? DOING! ～Reply to L～",
+      "date": "2026-09-19",
+      "city": "東京",
+      "venue": "東京・京王アリーナ TOKYO",
+      "tags": [
+        "官方",
+        "BlueBird",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/lovehigh/live/live_detail.php?_id=2ndLIVE",
+      "source": "https://www.lovelive-anime.jp/lovehigh/live/"
+    },
+    {
+      "id": "49c309c1d1b596a4fe",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "ナガノアニエラフェスタ2026 ライブ",
+      "date": "2026-09-19",
+      "city": "長野県佐久市",
+      "venue": "長野県佐久市 駒場公園",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/anierafesta2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "8b1bdd297ffe040427",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "FEST. INAZUMA 2026 ライブ",
+      "date": "2026-09-20",
+      "city": "滋賀県草津市",
+      "venue": "滋賀県草津市 烏丸半島芝生広場 (滋賀県琵琶湖博物館西隣 多目的広場)",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/fest-inazuma2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "50758e53d3c906f0e9",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "いきづらい部！ 2nd LIVE Dou-Da? DOING! ～Reply to L～",
+      "date": "2026-09-20",
+      "city": "東京",
+      "venue": "東京・京王アリーナ TOKYO",
+      "tags": [
+        "官方",
+        "BlueBird",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/lovehigh/live/live_detail.php?_id=2ndLIVE",
+      "source": "https://www.lovelive-anime.jp/lovehigh/live/"
+    },
+    {
+      "id": "2d1d8be17d690f2eee",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "ナガノアニエラフェスタ2026 ライブ",
+      "date": "2026-09-20",
+      "city": "長野県佐久市",
+      "venue": "長野県佐久市 駒場公園",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/anierafesta2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "b7be42938d0ab6ed2e",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "FEST. INAZUMA 2026 ライブ",
+      "date": "2026-09-21",
+      "city": "滋賀県草津市",
+      "venue": "滋賀県草津市 烏丸半島芝生広場 (滋賀県琵琶湖博物館西隣 多目的広場)",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/events/fest-inazuma2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "7976a0bed9e79a4141",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Morfonica LIVE「Movement」 ライブ",
+      "date": "2026-09-22",
+      "city": "TACHIKAWA",
+      "venue": "TACHIKAWA STAGE GARDEN",
+      "tags": [
+        "Morfonica"
+      ],
+      "url": "https://bang-dream.com/events/morfonica_live_2026/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "0ff75a2e1f54b6c952",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "TVアニメ「バンドリ！ ゆめ∞みた」放送記念フリーライブ「新宿着陸計画」 ライブ",
+      "date": "2026-09-25",
+      "city": "TOKYO",
+      "venue": "東急歌舞伎町タワーステージ・Zepp Shinjuku (TOKYO)",
+      "tags": [
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/yumemita_2026free_day1/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "d2f2f88022a1872218",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "BanG Dream! 13th☆LIVE DAY1 : Poppin'Party ライブ",
+      "date": "2026-10-10",
+      "city": "東京",
+      "venue": "東京ガーデンシアター",
+      "tags": [
+        "Poppin'Party"
+      ],
+      "url": "https://bang-dream.com/13th-live/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "db2718c4c5105b3504",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "LoveLive! Series 15th Anniversary ラブライブ！フェス 前夜祭 FILM LIVE ～未来へ届けるタイムカプセル～",
+      "date": "2026-10-10",
+      "city": "Shibuya",
+      "venue": "Shibuya LOVEZ",
+      "tags": [
+        "官方",
+        "蓮ノ空",
+        "ライブ/イベント",
+        "シリーズ横断",
+        "BlueBird",
+        "Liella!",
+        "虹ヶ咲学園",
+        "Aqours"
+      ],
+      "url": "https://www.lovelive-anime.jp/special/live/live_detail.php?p=15thzenyasai",
+      "source": "https://www.lovelive-anime.jp/hasunosora/live-event/"
+    },
+    {
+      "id": "1039a45ec0e2724960",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "BanG Dream! 13th☆LIVE DAY2 : 夢限大みゅーたいぷ ライブ",
+      "date": "2026-10-11",
+      "city": "東京",
+      "venue": "東京ガーデンシアター",
+      "tags": [
+        "夢限大みゅーたいぷ"
+      ],
+      "url": "https://bang-dream.com/13th-live/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "0e0ff8a9d6803f6fd2",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "LoveLive! Series 15th Anniversary ラブライブ！フェス 前夜祭 FILM LIVE ～未来へ届けるタイムカプセル～",
+      "date": "2026-10-11",
+      "city": "Shibuya",
+      "venue": "Shibuya LOVEZ",
+      "tags": [
+        "官方",
+        "蓮ノ空",
+        "ライブ/イベント",
+        "シリーズ横断",
+        "BlueBird",
+        "Liella!",
+        "虹ヶ咲学園",
+        "Aqours"
+      ],
+      "url": "https://www.lovelive-anime.jp/special/live/live_detail.php?p=15thzenyasai",
+      "source": "https://www.lovelive-anime.jp/hasunosora/live-event/"
+    },
+    {
+      "id": "0d6e64baea3b847fbe",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "BanG Dream! 13th☆LIVE DAY3 : RAISE A SUILEN ライブ",
+      "date": "2026-10-12",
+      "city": "東京",
+      "venue": "東京ガーデンシアター",
+      "tags": [
+        "RAISE A SUILEN"
+      ],
+      "url": "https://bang-dream.com/13th-live/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "ae2a3e705fe107827e",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Ave Mujica 7th LIVE「Virtus」 ライブ",
+      "date": "2026-10-24",
+      "city": "TOKYO",
+      "venue": "京王アリーナ TOKYO",
+      "tags": [
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/events/avemujica_7th/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "564501f88f20e5ef31",
+      "franchise": "bangdream",
+      "franchiseLabel": "Bang Dream",
+      "title": "Ave Mujica 7th LIVE「Virtus」 ライブ",
+      "date": "2026-10-25",
+      "city": "TOKYO",
+      "venue": "京王アリーナ TOKYO",
+      "tags": [
+        "Ave Mujica"
+      ],
+      "url": "https://bang-dream.com/events/avemujica_7th/",
+      "source": "https://bang-dream.com/events/"
+    },
+    {
+      "id": "d780dc59ea24be317d",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "LoveLive! Series 15th Anniversary ラブライブ！フェス",
+      "date": "2026-11-14",
+      "city": "バンテリンドーム",
+      "venue": "バンテリンドーム ナゴヤ",
+      "tags": [
+        "官方",
+        "蓮ノ空",
+        "ライブ/イベント",
+        "シリーズ横断",
+        "BlueBird",
+        "Liella!",
+        "虹ヶ咲学園",
+        "Aqours"
+      ],
+      "url": "https://www.lovelive-anime.jp/special/live/live_detail.php?p=15th_lovelivefest",
+      "source": "https://www.lovelive-anime.jp/hasunosora/live-event/"
+    },
+    {
+      "id": "12810c538fea5616de",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "LoveLive! Series 15th Anniversary ラブライブ！フェス",
+      "date": "2026-11-15",
+      "city": "バンテリンドーム",
+      "venue": "バンテリンドーム ナゴヤ",
+      "tags": [
+        "官方",
+        "蓮ノ空",
+        "ライブ/イベント",
+        "シリーズ横断",
+        "BlueBird",
+        "Liella!",
+        "虹ヶ咲学園",
+        "Aqours"
+      ],
+      "url": "https://www.lovelive-anime.jp/special/live/live_detail.php?p=15th_lovelivefest",
+      "source": "https://www.lovelive-anime.jp/hasunosora/live-event/"
+    },
+    {
+      "id": "cac7df09861b1621bd",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "Guilty Kiss Musical Performance 漆黒のWanted Ghost",
+      "date": "2026-11-22",
+      "city": "沼津市民文化センター",
+      "venue": "沼津市民文化センター",
+      "tags": [
+        "官方",
+        "Aqours",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/uranohoshi/live/live_detail.php?p=Wanted_Ghost",
+      "source": "https://www.lovelive-anime.jp/uranohoshi/live.php"
+    },
+    {
+      "id": "66a1487a2ecaa75f8e",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "Guilty Kiss Musical Performance 漆黒のWanted Ghost",
+      "date": "2026-11-23",
+      "city": "沼津市民文化センター",
+      "venue": "沼津市民文化センター",
+      "tags": [
+        "官方",
+        "Aqours",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/uranohoshi/live/live_detail.php?p=Wanted_Ghost",
+      "source": "https://www.lovelive-anime.jp/uranohoshi/live.php"
+    },
+    {
+      "id": "15e72fa7d00bb880a8",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！サンシャイン!! 沼津地元愛まつり",
+      "date": "2027-03-20",
+      "city": "キラメッセぬまづ",
+      "venue": "キラメッセぬまづ",
+      "tags": [
+        "官方",
+        "Aqours",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/uranohoshi/live/live_detail.php?p=jimoai5th",
+      "source": "https://www.lovelive-anime.jp/uranohoshi/live.php"
+    },
+    {
+      "id": "59a9867862f4fac0b1",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！サンシャイン!! 沼津地元愛まつり",
+      "date": "2027-03-21",
+      "city": "キラメッセぬまづ",
+      "venue": "キラメッセぬまづ",
+      "tags": [
+        "官方",
+        "Aqours",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/uranohoshi/live/live_detail.php?p=jimoai5th",
+      "source": "https://www.lovelive-anime.jp/uranohoshi/live.php"
+    },
+    {
+      "id": "b747f4c97991ee292a",
+      "franchise": "lovelive",
+      "franchiseLabel": "LoveLive",
+      "title": "ラブライブ！サンシャイン!! 沼津地元愛まつり",
+      "date": "2027-03-22",
+      "city": "キラメッセぬまづ",
+      "venue": "キラメッセぬまづ",
+      "tags": [
+        "官方",
+        "Aqours",
+        "ライブ/イベント"
+      ],
+      "url": "https://www.lovelive-anime.jp/uranohoshi/live/live_detail.php?p=jimoai5th",
+      "source": "https://www.lovelive-anime.jp/uranohoshi/live.php"
+    }
+  ],
+  "liveOptionsUpdatedAt": "2026-06-26T11:46:44.734Z"
+}

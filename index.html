@@ -1,0 +1,1889 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="面向 BanG Dream!、LoveLive!、IM@S 等企划的票务转让与互助。" />
+  <title>Ticket Exchange</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f7fc;
+      --bg-2: #e8eef8;
+      --surface: #ffffff;
+      --surface-strong: #f8fbff;
+      --border: rgba(27, 46, 73, 0.10);
+      --text: #182233;
+      --muted: #667588;
+      --muted-2: #8493a4;
+      --accent: #4c8dff;
+      --accent-2: #6fd3ff;
+      --accent-3: #ff8bc0;
+      --good: #29b881;
+      --shadow: 0 16px 40px rgba(58, 89, 133, 0.10);
+      --radius-xl: 26px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --max: 1200px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      padding: 18px 20px 28px;
+      background:
+        radial-gradient(circle at top left, rgba(76, 141, 255, 0.16), transparent 24%),
+        radial-gradient(circle at 85% 16%, rgba(255, 139, 192, 0.15), transparent 22%),
+        linear-gradient(180deg, #f7fbff 0%, #eef4fb 100%);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(27, 46, 73, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(27, 46, 73, 0.035) 1px, transparent 1px);
+      background-size: 72px 72px;
+      opacity: 0.3;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+      max-width: 100%;
+    }
+
+    button {
+      touch-action: manipulation;
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 18px;
+    }
+
+    .container {
+      width: min(calc(100% - 48px), var(--max));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: static;
+      z-index: auto;
+      backdrop-filter: none;
+      background: transparent;
+      border-bottom: 0;
+      box-shadow: none;
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 4px 0 2px;
+    }
+
+    body:not([data-page="home"]) .topbar-inner > .brand {
+      visibility: hidden;
+    }
+
+    body:not([data-page="home"]) .topbar-actions > :not(.page-rail):not(.notification-chip):not(.session-chip) {
+      display: none !important;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 0 0 auto;
+      min-width: 0;
+    }
+
+    body:not([data-page="home"]) .topbar-actions {
+      display: flex;
+      width: auto;
+      justify-content: flex-end;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      min-width: 0;
+    }
+
+    .brand-text {
+      min-width: 0;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .brand-subtitle {
+      margin: 4px 0 0;
+      color: rgba(102, 117, 136, 0.68);
+      font-size: 0.8rem;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      white-space: nowrap;
+    }
+
+    .nav a {
+      position: relative;
+      padding-bottom: 4px;
+    }
+
+    .nav a::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 160ms ease;
+    }
+
+    .nav a:hover::after {
+      transform: scaleX(1);
+    }
+
+    .session-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .session-chip strong {
+      font-weight: 600;
+    }
+
+    .session-chip strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .session-login,
+    .session-logged {
+      margin-top: 14px;
+    }
+
+    .session-logged {
+      display: flex;
+      justify-content: flex-start;
+      gap: 14px;
+    }
+
+    #adminLiveManageButton {
+      display: none;
+    }
+
+    body[data-page="center"] #adminLiveManageButton {
+      display: inline-flex;
+    }
+
+    .hero {
+      padding: 14px 0 10px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .hero-card,
+    .panel,
+    .stats-card,
+    .listing-card,
+    .composer,
+    .notice {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      backdrop-filter: none;
+    }
+
+    .hero-card {
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      min-height: 100%;
+    }
+
+    .hero-title {
+      margin: 0 0 12px;
+      font-size: clamp(1.8rem, 3.4vw, 2.65rem);
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      margin: 0;
+      max-width: 56ch;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 0.94rem;
+    }
+
+    .btn {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
+      will-change: transform;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      color: #ffffff;
+      background: linear-gradient(135deg, var(--accent), #75afff);
+      box-shadow: 0 10px 18px rgba(76, 141, 255, 0.16);
+      font-weight: 700;
+    }
+
+    .btn-secondary {
+      color: var(--text);
+      background: #ffffff;
+      border: 1px solid var(--border);
+    }
+
+    .hero-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .stats-card {
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 90px;
+    }
+
+    .stats-label {
+      color: var(--muted-2);
+      font-size: 0.84rem;
+      letter-spacing: 0.04em;
+    }
+
+    .stats-value {
+      margin: 8px 0 6px;
+      font-size: 1.28rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .stats-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .side-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel {
+      border-radius: var(--radius-lg);
+      padding: 18px;
+    }
+
+    .session-panel {
+      border-radius: var(--radius-lg);
+      padding: 20px;
+    }
+
+    .session-panel h2 {
+      margin-bottom: 6px;
+    }
+
+    .session-status {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 16px;
+      background: #f8fbff;
+      border: 1px solid var(--border);
+    }
+
+    .session-status p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .session-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .session-stat {
+      padding: 12px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+    }
+
+    .session-stat span {
+      display: block;
+      color: var(--muted-2);
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+
+    .session-stat strong {
+      font-size: 1.02rem;
+    }
+
+    .session-form {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .session-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .panel h2,
+    .composer h2,
+    .notice h3 {
+      margin: 0 0 12px;
+      font-size: 1.18rem;
+      letter-spacing: 0;
+    }
+
+    .panel p,
+    .composer p,
+    .notice p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .step-index {
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(255,106,162,0.96), rgba(109,226,255,0.96));
+      color: #101321;
+      font-weight: 800;
+      font-size: 0.86rem;
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .step span {
+      color: var(--muted-2);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      margin: 12px auto;
+      padding: 18px 24px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+    }
+
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .filters,
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .sortbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .sortbar .field {
+      min-width: 260px;
+    }
+
+    .chip {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 13px;
+      cursor: pointer;
+      transition: all 160ms ease;
+    }
+
+    .chip:hover {
+      border-color: rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.09);
+    }
+
+    .chip.is-active {
+      background: linear-gradient(135deg, rgba(76, 141, 255, 0.12), rgba(111, 211, 255, 0.12));
+      border-color: rgba(76, 141, 255, 0.16);
+      box-shadow: 0 8px 16px rgba(76, 141, 255, 0.06);
+    }
+
+    .chip[data-favorites="1"] {
+      border-style: dashed;
+    }
+
+    .chip[data-favorites="1"].is-active {
+      border-style: solid;
+    }
+
+    .searchbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .field {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 13px 14px;
+      min-height: 48px;
+      outline: none;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+    }
+
+    select.field {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      padding-right: 42px;
+      background-image: linear-gradient(45deg, transparent 50%, rgba(102, 117, 136, 0.9) 50%), linear-gradient(135deg, rgba(102, 117, 136, 0.9) 50%, transparent 50%);
+      background-position: calc(100% - 19px) 20px, calc(100% - 13px) 20px;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      cursor: pointer;
+    }
+
+    .field:focus {
+      border-color: rgba(76, 141, 255, 0.45);
+      box-shadow: 0 0 0 4px rgba(76, 141, 255, 0.10);
+    }
+
+    .field::placeholder {
+      color: rgba(104, 118, 136, 0.78);
+    }
+
+    .listings {
+      padding: 10px 0 30px;
+    }
+
+    .listings-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.78fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .listing-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .listing-pager {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .pager-button {
+      min-width: 44px;
+      justify-content: center;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--text);
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(58, 89, 133, 0.06);
+    }
+
+    .pager-button.is-active {
+      border-color: rgba(76, 141, 255, 0.24);
+      background: linear-gradient(135deg, rgba(76, 141, 255, 0.12), rgba(111, 211, 255, 0.14));
+      box-shadow: 0 10px 18px rgba(76, 141, 255, 0.12);
+      font-weight: 700;
+    }
+
+    .pager-info {
+      color: var(--muted);
+      font-size: 0.84rem;
+      padding: 0 4px;
+    }
+
+    .listing-card {
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .listing-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 3px;
+      background: linear-gradient(90deg, rgba(76, 141, 255, 0.16), var(--accent, #4c8dff));
+    }
+
+    .listing-card.is-owned {
+      border-color: rgba(41, 184, 129, 0.18);
+      box-shadow: var(--shadow), inset 0 0 0 1px rgba(41, 184, 129, 0.05);
+    }
+
+    .listing-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(76, 141, 255, 0.16);
+      background: #ffffff;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .card-main {
+      min-width: 0;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 1.08rem;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .card-subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .listing-owner {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      color: var(--muted-2);
+      font-size: 0.84rem;
+    }
+
+    .listing-owner strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(76, 141, 255, 0.08);
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+
+    .badge.badge-success {
+      background: rgba(41, 184, 129, 0.14);
+      color: #1e7b5a;
+    }
+
+    .badge.badge-premium {
+      background: rgba(255, 106, 106, 0.16);
+      color: #c93c3c;
+    }
+
+    .badge strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .meta {
+      padding: 11px;
+      border-radius: 12px;
+      background: var(--surface-strong);
+      border: 1px solid var(--border);
+    }
+
+    .meta-label {
+      color: var(--muted-2);
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+
+    .meta-value {
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+
+    .card-btn {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .card-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(76, 141, 255, 0.18);
+      background: #f8fbff;
+    }
+
+    .card-btn.primary {
+      background: linear-gradient(135deg, var(--accent), #6fc1ff);
+      color: #ffffff;
+      border-color: transparent;
+      font-weight: 800;
+    }
+
+    .card-btn.danger {
+      border-color: rgba(255, 120, 120, 0.22);
+      background: rgba(255, 120, 120, 0.08);
+      color: #ffd3d3;
+    }
+
+    .sidebar {
+      display: grid;
+      gap: 12px;
+    }
+
+    .composer {
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .composer-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .composer-badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(76, 141, 255, 0.08);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.84rem;
+      white-space: nowrap;
+    }
+
+    .composer-form {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .composer-feedback {
+      margin: 4px 0 0;
+      padding: 11px 13px;
+      border-radius: 12px;
+      border: 1px solid rgba(76, 141, 255, 0.18);
+      background: rgba(76, 141, 255, 0.08);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .composer-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+      gap: 10px;
+    }
+
+    .field-addon {
+      min-width: 140px;
+    }
+
+    .comment-panel {
+      margin-top: 14px;
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--surface-strong);
+      display: grid;
+      gap: 12px;
+    }
+
+    .comment-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .comment-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .comment-item {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      display: grid;
+      gap: 8px;
+    }
+
+    .comment-item-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .comment-author {
+      font-weight: 700;
+    }
+
+    .comment-meta {
+      color: var(--muted-2);
+      font-size: 0.8rem;
+    }
+
+    .comment-delete {
+      width: auto;
+      min-height: 34px;
+      padding: 6px 10px;
+      border-radius: 9px;
+      font-size: 0.82rem;
+    }
+
+    .comment-empty {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px dashed rgba(76, 141, 255, 0.18);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .comment-form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .comment-message {
+      margin: 0;
+      min-height: 1.4em;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
+
+    .choice-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .choice-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(76, 141, 255, 0.12);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 251, 255, 0.96));
+      box-shadow: 0 8px 18px rgba(58, 89, 133, 0.06);
+    }
+
+    .choice-label {
+      color: var(--muted-2);
+      font-size: 0.8rem;
+      letter-spacing: 0.02em;
+    }
+
+    .choice-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .choice-btn {
+      border: 1px solid rgba(27, 46, 73, 0.08);
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--muted);
+      padding: 11px 12px;
+      border-radius: 12px;
+      min-height: 46px;
+      box-shadow: none;
+      justify-content: center;
+      font-weight: 600;
+      min-width: 0;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .choice-btn:hover {
+      border-color: rgba(76, 141, 255, 0.22);
+      background: rgba(76, 141, 255, 0.05);
+      transform: translateY(-1px);
+    }
+
+    .choice-btn.is-active {
+      color: var(--text);
+      border-color: rgba(76, 141, 255, 0.24);
+      background: linear-gradient(135deg, rgba(76, 141, 255, 0.12), rgba(111, 211, 255, 0.14));
+      box-shadow: 0 10px 18px rgba(76, 141, 255, 0.12);
+    }
+
+    .composer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 2px;
+      margin-bottom: 0;
+    }
+
+    .composer-status {
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .composer-feedback {
+      display: none;
+      margin: 0 !important;
+    }
+
+    .composer-note {
+      margin: 0;
+      color: var(--muted-2);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .composer-feedback:not(:empty):not([hidden]) {
+      display: block;
+      padding: 11px 13px;
+      border-radius: 12px;
+      border: 1px solid rgba(76, 141, 255, 0.18);
+      background: rgba(76, 141, 255, 0.08);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .notice {
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .notice-disclaimer {
+      border-color: rgba(212, 74, 74, 0.22);
+      background: rgba(212, 74, 74, 0.06);
+    }
+
+    .notice-disclaimer h3,
+    .notice-disclaimer p,
+    .notice-disclaimer li {
+      color: #c63f3f;
+    }
+
+    .notice-disclaimer .notice-list li::before {
+      background: linear-gradient(135deg, #e46666, #c63f3f);
+    }
+
+    .notice-list {
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .notice-list li {
+      position: relative;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .notice-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.62em;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    }
+
+    .empty-state {
+      display: none;
+      padding: 28px;
+      text-align: center;
+      border-radius: 16px;
+      border: 1px dashed rgba(76, 141, 255, 0.16);
+      color: var(--muted);
+    }
+
+    .empty-state strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 8px;
+      font-size: 1.05rem;
+    }
+
+    .footer {
+      padding: 14px 0 30px;
+      color: var(--muted-2);
+      font-size: 0.88rem;
+      text-align: center;
+    }
+
+    .fade-in {
+      animation: fadeIn 520ms ease both;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1040px) {
+      .hero-grid,
+      .listings-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-mini-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 10px max(10px, env(safe-area-inset-right)) calc(82px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+        background: linear-gradient(180deg, #f7fbff 0%, #eef4fb 100%);
+      }
+
+      body:not([data-page="home"]) .topbar-inner > .brand,
+      body:not([data-page="home"]) .topbar-actions > :not(.page-rail) {
+        display: none;
+      }
+
+      body::before {
+        background-size: 44px 44px;
+        opacity: 0.18;
+      }
+
+      .shell {
+        gap: 10px;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .shell > *,
+      main,
+      .topbar,
+      .container {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .container {
+        width: 100%;
+      }
+
+      .topbar-inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 0;
+      }
+
+      .brand,
+      .brand-text {
+        width: 100%;
+      }
+
+      .brand-title {
+        font-size: 0.98rem;
+      }
+
+      .brand-subtitle {
+        display: -webkit-box;
+        max-width: 100%;
+        overflow: hidden;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        font-size: 0.75rem;
+        line-height: 1.35;
+      }
+
+      .topbar-actions {
+        width: 100%;
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .topbar-actions > * {
+        min-width: 0;
+      }
+
+      .hero {
+        padding: 4px 0 6px;
+      }
+
+      .hero-grid,
+      .listings-grid {
+        gap: 10px;
+      }
+
+      .toolbar {
+        padding: 12px;
+        margin: 6px 0 8px;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr);
+        overflow: hidden;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: auto !important;
+      }
+
+      .notice-disclaimer {
+        margin-left: 0;
+        margin-right: 0;
+        width: auto;
+      }
+
+      .toolbar-row,
+      .searchbar,
+      .card-top {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .toolbar-row {
+        gap: 12px;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .filters,
+      .tabs {
+        flex-wrap: nowrap;
+        gap: 8px;
+        min-width: 0;
+        max-width: 100%;
+        margin: 0;
+        padding: 0 0 4px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .filters::-webkit-scrollbar,
+      .tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .nav {
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .sortbar,
+      .sortbar .field {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .searchbar {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .field {
+        min-height: 44px;
+        padding: 10px 12px;
+        border-radius: 11px;
+        font-size: 16px;
+      }
+
+      textarea.field {
+        min-height: 92px;
+      }
+
+      .btn,
+      .chip,
+      .card-btn,
+      .pager-button {
+        min-height: 40px;
+      }
+
+      .chip {
+        flex: 0 0 auto;
+        padding: 8px 10px;
+        white-space: nowrap;
+      }
+
+      .hero-card,
+      body .session-panel,
+      .panel,
+      .composer,
+      .notice {
+        padding: 12px;
+        border-radius: 14px;
+        box-shadow: 0 10px 26px rgba(58, 89, 133, 0.08);
+      }
+
+      .panel h2,
+      .composer h2,
+      .notice h3,
+      .session-panel h2 {
+        margin-bottom: 8px;
+        font-size: 1.08rem;
+        line-height: 1.25;
+      }
+
+      .panel p,
+      .composer p,
+      .notice p,
+      .session-panel p {
+        font-size: 0.88rem;
+        line-height: 1.5;
+      }
+
+      .session-status {
+        gap: 8px;
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 12px;
+      }
+
+      .session-meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .session-stat {
+        padding: 9px;
+        border-radius: 11px;
+      }
+
+      .session-stat span {
+        margin-bottom: 3px;
+        font-size: 0.72rem;
+      }
+
+      .session-stat strong {
+        font-size: 0.96rem;
+      }
+
+      .session-form,
+      .composer-form {
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .composer-head {
+        gap: 8px;
+      }
+
+      .choice-card {
+        gap: 6px;
+        padding: 9px;
+        border-radius: 12px;
+      }
+
+      .choice-label {
+        font-size: 0.72rem;
+      }
+
+      .choice-row {
+        gap: 6px;
+      }
+
+      .choice-btn {
+        min-height: 38px;
+        padding: 8px 9px;
+        border-radius: 10px;
+        font-size: 0.84rem;
+      }
+
+      .composer-actions {
+        margin-top: 0;
+      }
+
+      .composer-status {
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .composer-feedback:not(:empty):not([hidden]) {
+        padding: 9px 10px;
+        border-radius: 10px;
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
+      body[data-page="publish"] .listings,
+      body[data-page="center"] .listings {
+        padding-top: 4px;
+        padding-bottom: 20px;
+      }
+
+      .hero-mini-grid,
+      .composer-grid,
+      .field-row,
+      .choice-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field-addon {
+        min-width: 0;
+      }
+
+      body[data-page="publish"] .field-row {
+        grid-template-columns: minmax(0, 1fr) minmax(92px, 118px);
+      }
+
+      body[data-page="publish"] .choice-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      body[data-page="publish"] textarea.field {
+        min-height: 96px;
+      }
+
+      body[data-page="publish"] .field {
+        min-height: 44px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+
+      body[data-page="publish"] .choice-card {
+        padding: 10px;
+      }
+
+      body[data-page="publish"] .choice-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      body[data-page="publish"] .choice-btn {
+        min-height: 40px;
+        padding: 8px 9px;
+        font-size: 0.84rem;
+      }
+
+      body[data-page="publish"] .composer-form {
+        gap: 10px;
+      }
+
+      body[data-page="publish"] .composer-actions {
+        margin-top: 4px;
+        gap: 10px;
+      }
+
+      .session-actions,
+      .composer-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .session-actions .btn,
+      .composer-actions .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .session-logged {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+
+      .session-logged .btn {
+        width: auto;
+        justify-content: center;
+      }
+
+      .card-title,
+      .card-subtitle,
+      .listing-owner,
+      .meta-value {
+        overflow-wrap: anywhere;
+      }
+
+      .listing-card {
+        padding: 16px;
+        gap: 12px;
+        border-radius: 16px;
+      }
+
+      .badge-row,
+      .card-actions {
+        justify-content: flex-start;
+      }
+
+      .card-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .card-btn {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+        overflow-wrap: anywhere;
+      }
+
+      .comment-delete {
+        width: auto;
+        min-height: 34px;
+        padding: 6px 10px;
+        justify-self: end;
+      }
+
+      body[data-page="browse"] .listings-grid {
+        margin-left: 0;
+        width: 100%;
+      }
+
+      body[data-page="browse"] .listings {
+        padding-top: 4px;
+        padding-bottom: 12px;
+        overflow-x: clip;
+      }
+
+      body[data-page="browse"] .listing-list {
+        gap: 10px;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      body[data-page="browse"] .listing-card {
+        padding: 12px;
+        gap: 8px;
+        border-radius: 14px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      body[data-page="browse"] .card-top {
+        gap: 8px;
+        min-width: 0;
+        max-width: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      body[data-page="browse"] .card-main {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      body[data-page="browse"] .card-title {
+        font-size: 1rem;
+        line-height: 1.32;
+      }
+
+      body[data-page="browse"] .card-subtitle {
+        margin-top: 3px;
+        font-size: 0.88rem;
+        line-height: 1.45;
+      }
+
+      body[data-page="browse"] .listing-card > .card-subtitle {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      body[data-page="browse"] .listing-owner {
+        margin-top: 6px;
+        font-size: 0.78rem;
+        line-height: 1.35;
+      }
+
+      body[data-page="browse"] .badge-row {
+        flex-wrap: wrap;
+        gap: 5px;
+        overflow-x: visible;
+        padding-bottom: 1px;
+        scrollbar-width: none;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
+
+      body[data-page="browse"] .badge-row::-webkit-scrollbar {
+        display: none;
+      }
+
+      body[data-page="browse"] .badge,
+      body[data-page="browse"] .tiny-pill {
+        flex: 0 1 auto;
+        padding: 5px 8px;
+        font-size: 0.74rem;
+        line-height: 1.15;
+        max-width: 100%;
+        min-width: 0;
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      body[data-page="browse"] .meta-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      body[data-page="browse"] .meta {
+        padding: 8px;
+        border-radius: 10px;
+        min-width: 0;
+      }
+
+      body[data-page="browse"] .meta-label {
+        margin-bottom: 3px;
+        font-size: 0.72rem;
+      }
+
+      body[data-page="browse"] .meta-value {
+        font-size: 0.88rem;
+        line-height: 1.25;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      body[data-page="browse"] .card-actions {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        margin-top: 0;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      body[data-page="browse"] .card-btn {
+        min-height: 38px;
+        padding: 7px 8px;
+        border-radius: 9px;
+        font-size: 0.84rem;
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      .loading-note,
+      .empty-state {
+        padding: 20px 14px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .brand-subtitle {
+        display: none;
+      }
+
+      .meta-grid,
+      .session-actions,
+      .composer-actions,
+      .card-actions {
+        grid-template-columns: 1fr;
+      }
+
+      body[data-page="browse"] .meta-grid,
+      body[data-page="browse"] .card-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (hover: none) {
+      .btn:hover,
+      .chip:hover,
+      .card-btn:hover,
+      .listing-card:hover {
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <a class="brand" href="#top" aria-label="票务互助首页">
+          <span class="brand-text">
+            <p class="brand-title">Ticket Exchange</p>
+            <p class="brand-subtitle">面向 BanG Dream!、LoveLive!、IM@S 等二偶企划的票务转让与互助</p>
+          </span>
+        </a>
+        <div class="topbar-actions">
+          <div class="session-chip" id="topbarUserChip"><strong>未登录</strong></div>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="container hero-grid">
+          <aside class="side-stack fade-in" style="animation-delay: 80ms;">
+            <section class="session-panel">
+              <h2>账号与权限</h2>
+              <p>登录后可管理个人发布、收藏与编辑记录。</p>
+              <div class="session-status" id="sessionStatusBox">
+                <p id="sessionStatusText">当前未登录。</p>
+                <div class="session-meta">
+                  <div class="session-stat">
+                    <span>我的票务</span>
+                    <strong id="myListingCount">0 条</strong>
+                  </div>
+                  <div class="session-stat">
+                    <span>账号状态</span>
+                    <strong id="sessionRoleLabel">访客</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="session-login" id="sessionLoginArea">
+                <form class="session-form" id="loginForm">
+                  <input class="field" name="username" placeholder="用户名" autocomplete="username" required />
+                  <input class="field" name="password" type="password" placeholder="密码" autocomplete="current-password" required />
+                  <div class="session-actions">
+                    <button class="btn btn-primary" type="submit">登录</button>
+                    <button class="btn btn-secondary" type="button" id="registerButton">注册账号</button>
+                  </div>
+                </form>
+              </div>
+              <div class="session-logged" id="sessionLoggedArea" hidden>
+                <button class="btn btn-secondary" type="button" id="logoutButton">退出登录</button>
+                <button class="btn btn-secondary" type="button" id="adminLiveManageButton">管理Live</button>
+              </div>
+              <p class="session-feedback" id="sessionFeedback" hidden></p>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section class="container notice notice-disclaimer fade-in" style="animation-delay: 120ms;">
+        <h3>免责声明与风险提示</h3>
+        <p>本站仅提供出票、收票和票信息发布和交流服务，不参与任何交易、资金托管，也不对票务真伪、交易结果或对方履约作担保。</p>
+        <ul class="notice-list">
+          <li>用户发布的内容仅代表发布者个人信息与承诺，请自行核实票务、价格、数量、场次、联系方式及对方身份。</li>
+          <li>交易前建议保留聊天记录、交易凭证和票务信息截图，谨慎确认后再进行后续操作。</li>
+          <li>请勿发布诈骗、侵权或其他违法违规内容。</li>
+        </ul>
+      </section>
+
+      <section class="container toolbar">
+        <div class="toolbar-row">
+          <div class="tabs" role="tablist" aria-label="企划筛选">
+            <button class="chip is-active" data-franchise="all" type="button">全部企划</button>
+            <button class="chip" data-franchise="bangdream" type="button">Bang Dream</button>
+            <button class="chip" data-franchise="lovelive" type="button">LoveLive</button>
+          </div>
+          <div class="tabs" role="tablist" aria-label="票务类型筛选">
+            <button class="chip is-active" data-kind="all" type="button">全部类型</button>
+            <button class="chip" data-kind="transfer" type="button">出票</button>
+            <button class="chip" data-kind="seeking" type="button">收票</button>
+            <button class="chip" data-kind="swap" type="button">换票</button>
+            <button class="chip" data-favorites="1" type="button">收藏</button>
+          </div>
+          <div class="sortbar">
+            <select id="sortSelect" class="field" aria-label="排序方式">
+              <option value="dateDesc">场次日期：远到近</option>
+              <option value="dateAsc">场次日期：近到远</option>
+              <option value="publishedDesc">发布时间：新到旧</option>
+              <option value="publishedAsc">发布时间：旧到新</option>
+            </select>
+          </div>
+        </div>
+        <div class="searchbar">
+          <input id="searchInput" class="field" type="search" placeholder="搜索城市、场馆、企划、关键词" />
+        </div>
+      </section>
+
+      <section class="container listings" id="listings">
+        <div class="listings-grid">
+          <div>
+            <div class="listing-list" id="listingList"></div>
+            <div class="listing-pager" id="listingPager"></div>
+            <div class="empty-state" id="emptyState">
+              <strong>暂无匹配内容</strong>
+              试试放宽筛选条件，或者改用更泛的关键词搜索。
+            </div>
+          </div>
+
+          <aside class="sidebar" id="post">
+            <section class="composer">
+              <div class="composer-head">
+                <h2 id="composerTitle">发布票务</h2>
+              </div>
+              <form class="composer-form" id="draftForm">
+                <input type="hidden" name="editingId" id="editingId" value="" />
+                <input type="hidden" name="officialLiveId" value="" />
+                <input type="hidden" name="officialLiveTags" value="[]" />
+                <input type="hidden" name="officialLiveDates" value="[]" />
+                <div class="composer-grid">
+                  <input class="field" name="title" placeholder="标题" required />
+                  <div class="field-row">
+                    <input class="field" name="priceAmount" placeholder="价格" required />
+                    <select class="field field-addon" name="priceUnit" aria-label="价格单位">
+                      <option value="jpy">日元</option>
+                      <option value="cny">人民币</option>
+                    </select>
+                  </div>
+                  <input class="field" name="quantity" type="number" min="1" step="1" placeholder="数量" required />
+                </div>
+                <div class="field-row">
+                  <select class="field field-addon" name="contactType" aria-label="联系方式类型">
+                    <option value="qq">QQ</option>
+                    <option value="wechat">微信</option>
+                    <option value="email">邮箱</option>
+                    <option value="other">其他</option>
+                  </select>
+                  <input class="field" name="contactValue" placeholder="联系方式" required />
+                </div>
+                <div class="choice-grid">
+                  <div class="choice-card" id="officialLiveCard">
+                    <span class="choice-label">官方 Live 选项</span>
+                    <select class="field" id="officialLiveSelect">
+                      <option value="">加载中...</option>
+                    </select>
+                    <button class="btn btn-secondary" type="button" id="officialLiveApplyButton">填入表单</button>
+                  </div>
+                  <div class="choice-card" id="officialLiveTagCard">
+                    <span class="choice-label">标签</span>
+                    <div class="official-live-tags" id="officialLiveTagList"><span class="muted">暂无已带入标签</span></div>
+                  </div>
+                  <div class="choice-card">
+                    <span class="choice-label">企划</span>
+                    <div class="choice-row" data-choice-group="franchise">
+                      <button class="choice-btn is-active" type="button" data-choice-field="franchise" data-choice-value="bangdream">Bang Dream</button>
+                      <button class="choice-btn" type="button" data-choice-field="franchise" data-choice-value="lovelive">LoveLive</button>
+                      <button class="choice-btn" type="button" data-choice-field="franchise" data-choice-value="imas">IM@S</button>
+                      <button class="choice-btn" type="button" data-choice-field="franchise" data-choice-value="other">其他</button>
+                    </div>
+                    <input type="hidden" name="franchise" value="bangdream" />
+                  </div>
+                  <div class="choice-card">
+                    <span class="choice-label">票务类型</span>
+                    <div class="choice-row" data-choice-group="kind">
+                      <button class="choice-btn is-active" type="button" data-choice-field="kind" data-choice-value="transfer">出票</button>
+                      <button class="choice-btn" type="button" data-choice-field="kind" data-choice-value="seeking">收票</button>
+                      <button class="choice-btn" type="button" data-choice-field="kind" data-choice-value="swap">换票</button>
+                    </div>
+                    <input type="hidden" name="kind" value="transfer" />
+                  </div>
+                  <div class="choice-card" id="canSerialCard" hidden>
+                    <span class="choice-label">是否可连番</span>
+                    <div class="choice-row" data-choice-group="canSerial">
+                      <button class="choice-btn is-active" type="button" data-choice-field="canSerial" data-choice-value="yes">可连番</button>
+                      <button class="choice-btn" type="button" data-choice-field="canSerial" data-choice-value="no">不可连番</button>
+                    </div>
+                    <input type="hidden" name="canSerial" value="yes" />
+                  </div>
+                  <div class="choice-card" id="premiumCard">
+                    <span class="choice-label">是否是严选票</span>
+                    <div class="choice-row" data-choice-group="isPremium">
+                      <button class="choice-btn" type="button" data-choice-field="isPremium" data-choice-value="yes">严选票</button>
+                      <button class="choice-btn is-active" type="button" data-choice-field="isPremium" data-choice-value="no">非严选票</button>
+                    </div>
+                    <input type="hidden" name="isPremium" value="no" />
+                  </div>
+                </div>
+                <input class="field" name="meta" placeholder="Live 场所" required />
+                <input class="field" name="date" type="date" required />
+                <div class="choice-card">
+                  <span class="choice-label">额外场次日期（可选）</span>
+                  <div id="extraDatesList" style="display:grid; gap:8px;"></div>
+                  <button class="btn btn-secondary" type="button" id="addExtraDateButton">添加日期</button>
+                </div>
+                <textarea class="field" name="note" rows="5" placeholder="备注"></textarea>
+                <div class="composer-actions">
+                  <button class="btn btn-primary" type="submit" id="draftSubmitButton">发布</button>
+                  <button class="btn btn-secondary" type="button" id="cancelEditButton" hidden>取消编辑</button>
+                </div>
+              </form>
+              <div class="composer-status">
+                <p class="composer-feedback" id="composerFeedback" hidden></p>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Ticket Exchange · 让票务流转与沟通更高效
+    </footer>
+  </div>
+
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
