@@ -1723,6 +1723,13 @@
                 <button class="btn btn-secondary" type="button" id="logoutButton">退出登录</button>
                 <button class="btn btn-secondary" type="button" id="adminLiveManageButton">管理Live</button>
               </div>
+              <div class="session-feedback-box" id="feedbackComposerArea" hidden>
+                <label class="choice-label" for="feedbackText">意见反馈（仅管理员可见）</label>
+                <textarea class="field" id="feedbackText" rows="3" maxlength="300" placeholder="请输入你想反馈的问题或建议"></textarea>
+                <div class="session-actions">
+                  <button class="btn btn-secondary" type="button" id="feedbackSubmitButton">提交反馈</button>
+                </div>
+              </div>
               <p class="session-feedback" id="sessionFeedback" hidden></p>
             </section>
           </aside>

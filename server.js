@@ -1342,6 +1342,28 @@ async function handleApi(req, res, store, url) {
     return sendJson(res, 200, { notifications });
   }
 
+  if (req.method === 'POST' && pathName === '/api/feedback') {
+    if (!user) {
+      return sendJson(res, 401, { error: 'login required' });
+    }
+    const body = parseJson(await readBody(req));
+    if (!body) return sendJson(res, 400, { error: 'invalid json' });
+    const text = String(body.text || '').trim();
+    if (!text) return sendJson(res, 400, { error: 'text required' });
+    if (text.length > 300) return sendJson(res, 400, { error: 'text too long' });
+
+    store.notifications.unshift({
+      id: store.nextNotificationId++,
+      audience: 'admin',
+      createdByRole: user.role || 'member',
+      text: `用户反馈（${user.name}）：${text}`,
+      at: new Date().toISOString(),
+      type: 'feedback'
+    });
+    await saveStore(store);
+    return sendJson(res, 201, { ok: true });
+  }
+
   if (req.method === 'POST' && pathName === '/api/notifications') {
     if (!user || user.role !== 'admin') {
       return sendJson(res, 403, { error: 'admin only' });

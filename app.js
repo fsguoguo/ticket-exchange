@@ -115,6 +115,8 @@
       .session-logged { display: flex; justify-content: flex-start; gap: 14px; }
       #adminLiveManageButton { display: none; }
       body[data-page="center"] #adminLiveManageButton { display: inline-flex; }
+      .session-feedback-box { margin-top: 12px; display: grid; gap: 8px; }
+      .session-feedback-box[hidden] { display: none !important; }
       .session-feedback { margin: 10px 0 0; min-height: 1.4em; color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
       .session-feedback.is-success { color: #17855f; }
       .session-feedback.is-error { color: #d44a4a; }
@@ -1441,6 +1443,10 @@
       refs.logoutButton.hidden = !state.currentUser;
       refs.logoutButton.style.display = state.currentUser ? '' : 'none';
     }
+    if (refs.feedbackComposerArea) {
+      refs.feedbackComposerArea.hidden = !state.currentUser;
+      refs.feedbackComposerArea.style.display = state.currentUser ? '' : 'none';
+    }
   }
 
   function renderStats() {
@@ -1615,11 +1621,15 @@
     if (state.notificationPage < 1) state.notificationPage = 1;
     const startIndex = (state.notificationPage - 1) * notificationPageSize;
     const pageItems = items.slice(startIndex, startIndex + notificationPageSize);
-    refs.notificationList.innerHTML = pageItems.map(item => `
+    refs.notificationList.innerHTML = pageItems.map(item => {
+      const title = item.type === 'feedback'
+        ? '反馈通知'
+        : (item.type === 'review' ? '审核通知' : '系统通知');
+      return `
       <div class="notification-item ${isNotificationUnread(item) ? 'is-unread' : 'is-read'}" data-notification-id="${notificationIdentity(item)}">
         <div class="review-item-head">
           <div>
-            <p class="review-item-title">${item.type === 'review' ? '审核通知' : '系统通知'}${isNotificationUnread(item) ? '<span class="notification-unread-dot">未读</span>' : ''}</p>
+            <p class="review-item-title">${title}${isNotificationUnread(item) ? '<span class="notification-unread-dot">未读</span>' : ''}</p>
             <div class="notification-meta">${formatTime(item.at)} · 点击标记为已读</div>
           </div>
           <span class="tiny-pill">${isNotificationUnread(item) ? '未读' : '已读'}</span>
@@ -1630,7 +1640,8 @@
           ${state.currentUser?.role === 'admin' ? `<button class="card-btn" type="button" data-notification-recall="${notificationIdentity(item)}">撤回</button>` : ''}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     if (refs.notificationPager) {
       if (totalPages <= 1) {
         refs.notificationPager.style.display = 'none';
@@ -1687,11 +1698,13 @@
       refs.notificationTrashList.innerHTML = '<div class="notification-item">废纸篓是空的。</div>';
       return;
     }
-    refs.notificationTrashList.innerHTML = items.map(item => `
+    refs.notificationTrashList.innerHTML = items.map(item => {
+      const trashTitle = item.type === 'feedback' ? '废纸篓反馈通知' : '废纸篓通知';
+      return `
       <div class="notification-item is-read" data-trash-notification-id="${notificationIdentity(item)}">
         <div class="review-item-head">
           <div>
-            <p class="review-item-title">废纸篓通知</p>
+            <p class="review-item-title">${trashTitle}</p>
             <div class="notification-meta">${formatTime(item.at)} · 可恢复或永久删除</div>
           </div>
           <span class="tiny-pill">已删除</span>
@@ -1702,7 +1715,8 @@
           <button class="card-btn danger" type="button" data-trash-delete="${notificationIdentity(item)}">删除</button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     refs.notificationTrashList.querySelectorAll('[data-trash-restore]').forEach(button => {
       button.onclick = async event => {
         event.stopPropagation();
@@ -2339,6 +2353,31 @@
     }
   }
 
+  async function submitFeedback() {
+    if (!state.currentUser) {
+      setSessionMessage('请先登录后再提交反馈。', 'is-error');
+      return;
+    }
+    const textField = refs.feedbackText;
+    const text = String(textField?.value || '').trim();
+    if (!text) {
+      setSessionMessage('请输入反馈内容。', 'is-error');
+      textField?.focus();
+      return;
+    }
+    try {
+      await apiFetch('/api/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ text })
+      });
+      if (textField) textField.value = '';
+      await refreshData();
+      setSessionMessage('反馈已发送给管理员。', 'is-success');
+    } catch (error) {
+      setSessionMessage(error.message || '反馈发送失败', 'is-error');
+    }
+  }
+
   function enhanceTopbar() {
     const topbarActions = document.querySelector('.topbar-actions');
     if (!topbarActions) return;
@@ -2753,6 +2792,12 @@
       });
     }
 
+    if (refs.feedbackSubmitButton) {
+      refs.feedbackSubmitButton.addEventListener('click', () => {
+        submitFeedback();
+      });
+    }
+
     if (refs.notificationDeleteAllButton) {
       refs.notificationDeleteAllButton.addEventListener('click', () => deleteAllNotifications());
     }
@@ -2868,6 +2913,9 @@
     refs.sessionLoginArea = document.getElementById('sessionLoginArea');
     refs.sessionLoggedArea = document.getElementById('sessionLoggedArea');
     refs.logoutButton = document.getElementById('logoutButton');
+    refs.feedbackComposerArea = document.getElementById('feedbackComposerArea');
+    refs.feedbackText = document.getElementById('feedbackText');
+    refs.feedbackSubmitButton = document.getElementById('feedbackSubmitButton');
     refs.sessionFeedback = document.getElementById('sessionFeedback');
     refs.registerButton = document.getElementById('registerButton');
     refs.cancelEditButton = document.getElementById('cancelEditButton');
