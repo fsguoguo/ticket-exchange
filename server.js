@@ -584,6 +584,22 @@ function isGenericOfficialLiveTag(tag) {
     || compact === 'liveevent';
 }
 
+function sanitizeOfficialLiveTag(tag) {
+  const text = normalizeSpace(tag);
+  if (!text) return '';
+  return normalizeSpace(
+    text
+      .replace(/ライブ\s*[\/／]\s*イベント/ig, ' ')
+      .replace(/live\s*[\/／]\s*event/ig, ' ')
+      .replace(/live\s*[·・._-]?\s*event/ig, ' ')
+      .replace(/ライブイベント/ig, ' ')
+      .replace(/\b(?:official|live|event)\b/ig, ' ')
+      .replace(/官方/ig, ' ')
+      .replace(/ライブ/ig, ' ')
+      .replace(/[\s·・._\-/]+/g, ' ')
+  );
+}
+
 function normalizeLiveOption(option) {
   if (!option || typeof option !== 'object') return null;
   const franchise = normalizeSpace(option.franchise || '').toLowerCase();
@@ -596,7 +612,11 @@ function normalizeLiveOption(option) {
   if (!url && !isManual) return null;
   const city = normalizeSpace(option.city) || guessCityFromVenue(venue);
   const tags = Array.isArray(option.tags)
-    ? option.tags.map(normalizeSpace).filter(Boolean).filter(item => !isGenericOfficialLiveTag(item)).slice(0, 8)
+    ? option.tags
+      .map(item => sanitizeOfficialLiveTag(item))
+      .filter(Boolean)
+      .filter(item => !isGenericOfficialLiveTag(item))
+      .slice(0, 8)
     : [];
   return {
     id: normalizeSpace(option.id) || buildLiveOptionId(franchise, date, url || `manual:${title}`, title),
@@ -940,18 +960,27 @@ function buildLiveMergeKey(item) {
   return `${normalized.franchise}|${normalized.date}|${title}|${venue}`;
 }
 
+function buildLiveRefreshKey(item) {
+  const normalized = normalizeLiveOption(item);
+  if (!normalized) return '';
+  if (normalized.source === 'manual') return `manual:${normalized.id}`;
+  const titleKey = buildLiveTitleMatchKey(normalized.title);
+  const url = normalizeSpace(normalized.url);
+  if (normalized.franchise && url && titleKey) {
+    return `official:${normalized.franchise}|${url}|${titleKey}`;
+  }
+  return `official:${normalized.id}`;
+}
+
 function mergeLiveOption(existing, incoming) {
   if (!existing) return incoming;
-  const existingBadVenue = looksLikeDateText(existing.venue);
-  const incomingBadVenue = looksLikeDateText(incoming.venue);
-  const preferred = existingBadVenue && !incomingBadVenue ? incoming : existing;
-  const mergedTags = [...new Set([
-    ...(Array.isArray(existing.tags) ? existing.tags : []),
-    ...(Array.isArray(incoming.tags) ? incoming.tags : [])
-  ].map(normalizeSpace).filter(Boolean))].slice(0, 8);
+  const incomingTags = Array.isArray(incoming.tags) ? incoming.tags.map(normalizeSpace).filter(Boolean) : [];
+  const existingTags = Array.isArray(existing.tags) ? existing.tags.map(normalizeSpace).filter(Boolean) : [];
+  const preferredTags = incomingTags.length ? incomingTags : existingTags;
   return {
-    ...preferred,
-    tags: mergedTags
+    ...existing,
+    ...incoming,
+    tags: preferredTags.slice(0, 8)
   };
 }
 
@@ -1102,12 +1131,12 @@ async function refreshLiveOptions(store, options = {}) {
 
     const unique = new Map();
     for (const existingItem of (store.liveOptions || []).map(normalizeLiveOption).filter(Boolean)) {
-      const key = buildLiveMergeKey(existingItem) || existingItem.id;
+      const key = buildLiveRefreshKey(existingItem) || buildLiveMergeKey(existingItem) || existingItem.id;
       const previous = unique.get(key);
       unique.set(key, mergeLiveOption(previous, existingItem));
     }
     for (const item of merged) {
-      const key = buildLiveMergeKey(item) || item.id;
+      const key = buildLiveRefreshKey(item) || buildLiveMergeKey(item) || item.id;
       const previous = unique.get(key);
       unique.set(key, mergeLiveOption(previous, item));
     }

@@ -725,10 +725,26 @@
 
   function visibleTicketTags(tags) {
     return (Array.isArray(tags) ? tags : [])
-      .map(item => String(item || '').trim())
+      .map(item => sanitizeOfficialLiveTag(item))
       .filter(Boolean)
       .filter(tag => !isGenericOfficialLiveTag(tag))
       .slice(0, 8);
+  }
+
+  function sanitizeOfficialLiveTag(tag) {
+    let text = String(tag || '').trim();
+    if (!text) return '';
+    text = text
+      .replace(/ライブ\s*[\/／]\s*イベント/ig, ' ')
+      .replace(/live\s*[\/／]\s*event/ig, ' ')
+      .replace(/live\s*[·・._-]?\s*event/ig, ' ')
+      .replace(/ライブイベント/ig, ' ')
+      .replace(/\b(?:official|live|event)\b/ig, ' ')
+      .replace(/官方/ig, ' ')
+      .replace(/ライブ/ig, ' ')
+      .replace(/[\s·・._\-/]+/g, ' ')
+      .trim();
+    return text;
   }
 
   function isGenericOfficialLiveTag(tag) {
@@ -750,7 +766,7 @@
     const list = Array.isArray(tags) ? tags : [];
     return Array.from(new Set(
       list
-        .map(item => String(item || '').trim())
+        .map(item => sanitizeOfficialLiveTag(item))
         .filter(Boolean)
         .filter(item => !isGenericOfficialLiveTag(item))
     ));
