@@ -103,6 +103,10 @@ const LIVE_SOURCES = [
 
 let liveRefreshPromise = null;
 
+const DEFAULT_PASSWORDS = {
+  admin: 'admin123'
+};
+
 function seedStore() {
   return {
     nextUserId: 4,
@@ -317,6 +321,12 @@ function normalizeStore(store) {
     if (user.name === 'admin') {
       user.role = 'admin';
     }
+    if (!user.passwordSalt || !user.passwordHash) {
+      const defaultPassword = DEFAULT_PASSWORDS[user.name] || '123456';
+      const passwordRecord = makePasswordRecord(defaultPassword);
+      user.passwordSalt = passwordRecord.salt;
+      user.passwordHash = passwordRecord.hash;
+    }
   }
 
   for (const listing of normalized.listings) {
@@ -454,6 +464,31 @@ function normalizeSpace(value) {
 
 function isAsciiCredential(value) {
   return /^[\x21-\x7E]+$/.test(String(value || ''));
+}
+
+function makePasswordRecord(password) {
+  const salt = crypto.randomBytes(8).toString('hex');
+  const hash = crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
+  return { salt, hash };
+}
+
+function verifyPassword(password, salt, expectedHash) {
+  const actualHash = crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
+  if (actualHash.length !== String(expectedHash || '').length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(actualHash, 'utf8'), Buffer.from(String(expectedHash || ''), 'utf8'));
+  } catch (error) {
+    return false;
+  }
+}
+
+function publicUser(user) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    name: user.name,
+    role: user.role
+  };
 }
 
 function toAbsoluteUrl(baseUrl, href) {
@@ -1329,7 +1364,7 @@ async function handleApi(req, res, store, url) {
   }
 
   if (req.method === 'GET' && pathName === '/api/session') {
-    return sendJson(res, 200, { user });
+    return sendJson(res, 200, { user: publicUser(user) });
   }
 
   if (req.method === 'POST' && pathName === '/api/session/register') {
@@ -1358,32 +1393,36 @@ async function handleApi(req, res, store, url) {
       name: username,
       role: 'member'
     };
+    const passwordRecord = makePasswordRecord(password);
+    createdUser.passwordSalt = passwordRecord.salt;
+    createdUser.passwordHash = passwordRecord.hash;
     store.users.push(createdUser);
 
     const token = crypto.randomBytes(16).toString('hex');
     store.tokens[token] = createdUser.id;
     await saveStore(store);
-    return sendJson(res, 201, { token, user: createdUser });
+    return sendJson(res, 201, { token, user: publicUser(createdUser) });
   }
 
   if (req.method === 'POST' && pathName === '/api/session/login') {
     const body = parseJson(await readBody(req));
+    const password = String(body?.password || '').trim();
     const nickname = String(body?.username || body?.nickname || body?.name || '').trim();
-    if (!body || !nickname) {
-      return sendJson(res, 400, { error: 'nickname is required' });
+    if (!body || !nickname || !password) {
+      return sendJson(res, 400, { error: 'username and password are required' });
     }
-    const role = nickname === 'admin' ? 'admin' : 'member';
-    let existing = store.users.find(item => item.name === nickname);
+    const existing = store.users.find(item => item.name === nickname);
     if (!existing) {
-      existing = { id: `u${store.nextUserId++}`, name: nickname, role };
-      store.users.push(existing);
-    } else {
-      existing.role = role;
+      return sendJson(res, 401, { error: 'invalid username or password' });
+    }
+    const isValid = verifyPassword(password, existing.passwordSalt, existing.passwordHash);
+    if (!isValid) {
+      return sendJson(res, 401, { error: 'invalid username or password' });
     }
     const token = crypto.randomBytes(16).toString('hex');
     store.tokens[token] = existing.id;
     await saveStore(store);
-    return sendJson(res, 200, { token, user: existing });
+    return sendJson(res, 200, { token, user: publicUser(existing) });
   }
 
   if (req.method === 'POST' && pathName === '/api/session/logout') {
@@ -1392,6 +1431,45 @@ async function handleApi(req, res, store, url) {
       delete store.tokens[token];
       await saveStore(store);
     }
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && pathName === '/api/session/password') {
+    if (!user) {
+      return sendJson(res, 401, { error: 'login required' });
+    }
+    const body = parseJson(await readBody(req));
+    if (!body) {
+      return sendJson(res, 400, { error: 'invalid json' });
+    }
+    const oldPassword = String(body.oldPassword || body.currentPassword || '').trim();
+    const newPassword = String(body.newPassword || '').trim();
+    if (!oldPassword || !newPassword) {
+      return sendJson(res, 400, { error: 'oldPassword and newPassword are required' });
+    }
+    if (!isAsciiCredential(newPassword)) {
+      return sendJson(res, 400, { error: 'new password can only contain english letters, numbers, and symbols' });
+    }
+    if (newPassword.length < 6) {
+      return sendJson(res, 400, { error: 'new password must be at least 6 characters' });
+    }
+    if (oldPassword === newPassword) {
+      return sendJson(res, 400, { error: 'new password must be different from old password' });
+    }
+
+    const targetUser = store.users.find(item => item.id === user.id);
+    if (!targetUser) {
+      return sendJson(res, 401, { error: 'login required' });
+    }
+    const oldPasswordValid = verifyPassword(oldPassword, targetUser.passwordSalt, targetUser.passwordHash);
+    if (!oldPasswordValid) {
+      return sendJson(res, 401, { error: 'invalid old password' });
+    }
+
+    const passwordRecord = makePasswordRecord(newPassword);
+    targetUser.passwordSalt = passwordRecord.salt;
+    targetUser.passwordHash = passwordRecord.hash;
+    await saveStore(store);
     return sendJson(res, 200, { ok: true });
   }
 

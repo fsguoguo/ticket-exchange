@@ -1472,10 +1472,36 @@
       refs.logoutButton.hidden = !state.currentUser;
       refs.logoutButton.style.display = state.currentUser ? '' : 'none';
     }
+    if (refs.changePasswordToggleButton) {
+      refs.changePasswordToggleButton.hidden = !state.currentUser;
+      refs.changePasswordToggleButton.style.display = state.currentUser ? '' : 'none';
+    }
+    if (!state.currentUser) {
+      if (refs.changePasswordArea) {
+        refs.changePasswordArea.hidden = true;
+        refs.changePasswordArea.style.display = 'none';
+      }
+      if (refs.changePasswordForm) {
+        refs.changePasswordForm.reset();
+      }
+    }
     if (refs.feedbackComposerArea) {
       refs.feedbackComposerArea.hidden = !state.currentUser;
       refs.feedbackComposerArea.style.display = state.currentUser ? '' : 'none';
     }
+  }
+
+  function toggleChangePasswordArea(forceVisible) {
+    if (!refs.changePasswordArea) return;
+    if (!state.currentUser) {
+      refs.changePasswordArea.hidden = true;
+      refs.changePasswordArea.style.display = 'none';
+      return;
+    }
+    const visible = typeof forceVisible === 'boolean' ? forceVisible : refs.changePasswordArea.hidden;
+    refs.changePasswordArea.hidden = !visible;
+    refs.changePasswordArea.style.display = visible ? '' : 'none';
+    if (!visible && refs.changePasswordForm) refs.changePasswordForm.reset();
   }
 
   function renderStats() {
@@ -2316,6 +2342,16 @@
     setSessionMessage('已退出登录。', 'is-success');
   }
 
+  async function changePassword(oldPassword, newPassword) {
+    if (!state.currentUser) {
+      throw new Error('请先登录后再修改密码。');
+    }
+    await apiFetch('/api/session/password', {
+      method: 'POST',
+      body: JSON.stringify({ oldPassword, newPassword })
+    });
+  }
+
   async function submitListing(formData) {
     if (!state.currentUser) {
       throw new Error('请先登录后再发布');
@@ -2857,6 +2893,51 @@
       });
     }
 
+    if (refs.changePasswordToggleButton) {
+      refs.changePasswordToggleButton.addEventListener('click', () => {
+        toggleChangePasswordArea();
+      });
+    }
+
+    if (refs.changePasswordCancelButton) {
+      refs.changePasswordCancelButton.addEventListener('click', () => {
+        toggleChangePasswordArea(false);
+      });
+    }
+
+    if (refs.changePasswordForm) {
+      refs.changePasswordForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (!state.currentUser) {
+          setSessionMessage('请先登录后再修改密码。', 'is-error');
+          return;
+        }
+        const formData = new FormData(refs.changePasswordForm);
+        const oldPassword = String(formData.get('oldPassword') || '').trim();
+        const newPassword = String(formData.get('newPassword') || '').trim();
+        if (!oldPassword || !newPassword) {
+          setSessionMessage('请填写旧密码和新密码。', 'is-error');
+          return;
+        }
+        if (newPassword.length < 6) {
+          setSessionMessage('新密码至少 6 位。', 'is-error');
+          return;
+        }
+        if (oldPassword === newPassword) {
+          setSessionMessage('新密码不能与旧密码相同。', 'is-error');
+          return;
+        }
+        try {
+          await changePassword(oldPassword, newPassword);
+          refs.changePasswordForm.reset();
+          toggleChangePasswordArea(false);
+          setSessionMessage('密码修改成功。', 'is-success');
+        } catch (error) {
+          setSessionMessage(error.message || '修改密码失败', 'is-error');
+        }
+      });
+    }
+
     if (refs.adminBroadcastForm) {
       refs.adminBroadcastForm.addEventListener('submit', event => {
         event.preventDefault();
@@ -2997,6 +3078,10 @@
     refs.sessionLoginArea = document.getElementById('sessionLoginArea');
     refs.sessionLoggedArea = document.getElementById('sessionLoggedArea');
     refs.logoutButton = document.getElementById('logoutButton');
+    refs.changePasswordArea = document.getElementById('changePasswordArea');
+    refs.changePasswordForm = document.getElementById('changePasswordForm');
+    refs.changePasswordToggleButton = document.getElementById('changePasswordToggleButton');
+    refs.changePasswordCancelButton = document.getElementById('changePasswordCancelButton');
     refs.feedbackComposerArea = document.getElementById('feedbackComposerArea');
     refs.feedbackText = document.getElementById('feedbackText');
     refs.feedbackSubmitButton = document.getElementById('feedbackSubmitButton');

@@ -1721,7 +1721,19 @@
               </div>
               <div class="session-logged" id="sessionLoggedArea" hidden>
                 <button class="btn btn-secondary" type="button" id="logoutButton">退出登录</button>
+                <button class="btn btn-secondary" type="button" id="changePasswordToggleButton">修改密码</button>
                 <button class="btn btn-secondary" type="button" id="adminLiveManageButton">管理Live</button>
+              </div>
+              <div class="session-feedback-box" id="changePasswordArea" hidden>
+                <label class="choice-label" for="changePasswordOld">修改密码</label>
+                <form class="session-form" id="changePasswordForm">
+                  <input class="field" id="changePasswordOld" name="oldPassword" type="password" placeholder="旧密码" autocomplete="current-password" required />
+                  <input class="field" id="changePasswordNew" name="newPassword" type="password" placeholder="新密码（至少 6 位）" autocomplete="new-password" required />
+                  <div class="session-actions">
+                    <button class="btn btn-primary" type="submit">确认修改</button>
+                    <button class="btn btn-secondary" type="button" id="changePasswordCancelButton">取消</button>
+                  </div>
+                </form>
               </div>
               <div class="session-feedback-box" id="feedbackComposerArea" hidden>
                 <label class="choice-label" for="feedbackText">意见反馈（仅管理员可见）</label>
