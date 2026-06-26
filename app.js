@@ -1640,7 +1640,7 @@
           </div>
         </div>
         <div class="meta-grid">
-          <div class="meta"><div class="meta-label">城市</div><div class="meta-value">${listing.city}</div></div>
+          <div class="meta"><div class="meta-label">场所</div><div class="meta-value">${listing.venue}</div></div>
           <div class="meta"><div class="meta-label">场次日期</div><div class="meta-value">${formatListingDates(listing)}</div></div>
           <div class="meta"><div class="meta-label">数量</div><div class="meta-value">${listing.quantity || 1} 张</div></div>
           <div class="meta"><div class="meta-label">价格</div><div class="meta-value">${listing.priceDisplay || listing.price}</div></div>
@@ -1810,7 +1810,7 @@
         <button class="btn btn-secondary detail-close" type="button" id="detailCloseButton">关闭</button>
       </div>
       <div class="detail-grid">
-        <div class="detail-card"><span>城市</span><strong>${listing.city}</strong></div>
+        <div class="detail-card"><span>场所</span><strong>${listing.venue}</strong></div>
         <div class="detail-card"><span>价格</span><strong>${listing.priceDisplay || listing.price}</strong></div>
         <div class="detail-card"><span>数量</span><strong>${listing.quantity || 1} 张</strong></div>
         <div class="detail-card"><span>联系方式</span><strong>${listing.contactDisplay || listing.contact}</strong></div>
