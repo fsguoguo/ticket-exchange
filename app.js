@@ -717,20 +717,33 @@
     const venue = String(option.venue || '').trim();
     const tags = Array.isArray(option.tags) ? option.tags.map(item => String(item || '').trim()).filter(Boolean) : [];
     const url = String(option.url || '').trim();
+    const sourceRaw = String(option.source || '').trim().toLowerCase();
+    const source = sourceRaw === 'manual' || url.startsWith('manual://') ? 'manual' : 'official';
     if (!id || !franchise || !title || !date || !venue) return null;
-    return { id, franchise, title, date, city, venue, tags, url };
+    return { id, franchise, title, date, city, venue, tags, url, source, franchiseLabel: option.franchiseLabel || '' };
   }
 
   function visibleTicketTags(tags) {
     return (Array.isArray(tags) ? tags : [])
       .map(item => String(item || '').trim())
       .filter(Boolean)
-      .filter(tag => !/^(官方|ライブ|ライブ\/イベント|live|event|live・event)$/i.test(tag))
+      .filter(tag => !isGenericOfficialLiveTag(tag))
       .slice(0, 8);
   }
 
   function isGenericOfficialLiveTag(tag) {
-    return /^(官方|ライブ|ライブ\/イベント|live|event|live・event)$/i.test(String(tag || '').trim());
+    const text = String(tag || '').trim().toLowerCase();
+    if (!text) return false;
+    const compact = text
+      .replace(/[／]/g, '/')
+      .replace(/[\s·・._-]+/g, '')
+      .replace(/\//g, '');
+    return compact === '官方'
+      || compact === 'ライブ'
+      || compact === 'ライブイベント'
+      || compact === 'live'
+      || compact === 'event'
+      || compact === 'liveevent';
   }
 
   function normalizeOfficialLiveTags(tags) {
@@ -2095,17 +2108,22 @@
 
     refs.adminLiveList.innerHTML = pageItems.map(item => {
       const fl = item.franchiseLabel || franchiseLabelsMap[item.franchise] || item.franchise;
+      const isManual = item.source === 'manual';
       return `<div class="review-item">
         <div class="review-item-head">
           <p class="review-item-title">${item.title}</p>
-          <span class="tiny-pill">${item.source === 'manual' ? '手动' : '自动'}</span>
+          <span class="tiny-pill">${isManual ? '手动' : '自动'}</span>
         </div>
         <p class="muted" style="margin:4px 0 8px;font-size:0.84rem">${fl} · ${item.venue} · ${item.date}</p>
         <div class="review-actions">
+          <button class="card-btn secondary" type="button" data-live-edit="${encodeURIComponent(item.id)}">编辑</button>
           <button class="card-btn danger" type="button" data-live-delete="${encodeURIComponent(item.id)}">删除</button>
         </div>
       </div>`;
     }).join('');
+    refs.adminLiveList.querySelectorAll('[data-live-edit]').forEach(btn => {
+      btn.addEventListener('click', () => fillAdminLiveFormForEdit(decodeURIComponent(btn.getAttribute('data-live-edit'))));
+    });
     refs.adminLiveList.querySelectorAll('[data-live-delete]').forEach(btn => {
       btn.addEventListener('click', () => deleteManualLiveOption(decodeURIComponent(btn.getAttribute('data-live-delete'))));
     });
@@ -2132,12 +2150,37 @@
     });
   }
 
+  function resetAdminLiveFormMode() {
+    if (refs.adminLiveForm) refs.adminLiveForm.reset();
+    if (refs.adminLiveEditingId) refs.adminLiveEditingId.value = '';
+    if (refs.adminLiveSubmitButton) refs.adminLiveSubmitButton.textContent = '添加';
+    if (refs.adminLiveCancelEditButton) refs.adminLiveCancelEditButton.hidden = true;
+    setAdminLiveExtraDates([]);
+  }
+
+  function fillAdminLiveFormForEdit(id) {
+    const all = Object.values(state.liveOptionsByFranchise).flat();
+    const target = all.find(item => String(item.id) === String(id));
+    if (!target) return;
+    document.getElementById('adminLiveFranchise').value = target.franchise || 'other';
+    document.getElementById('adminLiveTitle').value = target.title || '';
+    document.getElementById('adminLiveVenue').value = target.venue || '';
+    document.getElementById('adminLiveDate').value = target.date || '';
+    document.getElementById('adminLiveTags').value = Array.isArray(target.tags) ? target.tags.join(', ') : '';
+    document.getElementById('adminLiveUrl').value = target.url || '';
+    if (refs.adminLiveEditingId) refs.adminLiveEditingId.value = target.id;
+    if (refs.adminLiveSubmitButton) refs.adminLiveSubmitButton.textContent = '保存修改';
+    if (refs.adminLiveCancelEditButton) refs.adminLiveCancelEditButton.hidden = false;
+    setAdminLiveExtraDates([]);
+    setSessionMessage(`正在编辑 Live：${target.title}`, 'is-success');
+  }
+
   async function addManualLiveOption() {
     if (!state.currentUser || state.currentUser.role !== 'admin') return;
+    const editingId = String(refs.adminLiveEditingId?.value || '').trim();
     const franchise = document.getElementById('adminLiveFranchise')?.value || 'other';
     const title = String(document.getElementById('adminLiveTitle')?.value || '').trim();
     const venue = String(document.getElementById('adminLiveVenue')?.value || '').trim();
-    const city = String(document.getElementById('adminLiveCity')?.value || '').trim();
     const date = String(document.getElementById('adminLiveDate')?.value || '').trim();
     const tagsRaw = String(document.getElementById('adminLiveTags')?.value || '').trim();
     const url = String(document.getElementById('adminLiveUrl')?.value || '').trim();
@@ -2153,24 +2196,37 @@
       setSessionMessage('请至少提供一个有效日期（YYYY-MM-DD）。', 'is-error');
       return;
     }
-    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const tags = tagsRaw ? normalizeOfficialLiveTags(tagsRaw.split(',').map(t => t.trim()).filter(Boolean)) : [];
     try {
-      await Promise.all(allDates.map(currentDate => apiFetch('/api/live-options', {
-        method: 'POST',
-        body: JSON.stringify({
-          franchise,
-          title,
-          venue,
-          city,
-          date: currentDate,
-          tags,
-          url: url || `manual://${franchise}/${currentDate}/${Date.now()}`
-        })
-      })));
-      if (refs.adminLiveForm) refs.adminLiveForm.reset();
-      setAdminLiveExtraDates([]);
+      if (editingId) {
+        await apiFetch(`/api/live-options/${encodeURIComponent(editingId)}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            franchise,
+            title,
+            venue,
+            date,
+            tags,
+            url: url || `manual://${franchise}/${date}/${Date.now()}`
+          })
+        });
+        setSessionMessage(`已更新 Live：${title}`, 'is-success');
+      } else {
+        await Promise.all(allDates.map(currentDate => apiFetch('/api/live-options', {
+          method: 'POST',
+          body: JSON.stringify({
+            franchise,
+            title,
+            venue,
+            date: currentDate,
+            tags,
+            url: url || `manual://${franchise}/${currentDate}/${Date.now()}`
+          })
+        })));
+        setSessionMessage(`已添加 Live：${title}（${allDates.length} 个日期）`, 'is-success');
+      }
+      resetAdminLiveFormMode();
       state.adminLivePage = 1;
-      setSessionMessage(`已添加 Live：${title}（${allDates.length} 个日期）`, 'is-success');
       await loadData();
       renderOfficialLiveOptions();
       renderAdminLivePanel();
@@ -2184,6 +2240,9 @@
     if (!confirm('确认删除这条 Live 选项吗？')) return;
     try {
       await apiFetch(`/api/live-options/${encodeURIComponent(id)}`, { method: 'DELETE', body: '{}' });
+      if (String(refs.adminLiveEditingId?.value || '') === String(id)) {
+        resetAdminLiveFormMode();
+      }
       state.adminLivePage = 1;
       setSessionMessage('已删除 Live 选项。', 'is-success');
       await loadData();
@@ -2541,6 +2600,7 @@
       livePanel.innerHTML = `
         <div class="panel-head"><h3 style="margin:0;font-family:'Noto Serif SC','Songti SC',serif;">管理官方 Live 选项</h3><span class="tiny-pill">仅管理员</span></div>
         <form class="broadcast-form" id="adminLiveForm">
+          <input type="hidden" id="adminLiveEditingId" />
           <select class="field" id="adminLiveFranchise">
             <option value="bangdream">Bang Dream</option>
             <option value="lovelive">LoveLive</option>
@@ -2549,7 +2609,6 @@
           </select>
           <input class="field" id="adminLiveTitle" placeholder="Live 标题（必填）" />
           <input class="field" id="adminLiveVenue" placeholder="场馆（必填）" />
-          <input class="field" id="adminLiveCity" placeholder="城市（可不填，自动推断）" />
           <input class="field" type="date" id="adminLiveDate" />
           <div class="choice-card">
             <span class="choice-label">额外日期（可选）</span>
@@ -2559,7 +2618,8 @@
           <input class="field" id="adminLiveTags" placeholder="标签，逗号分隔（可选）" />
           <input class="field" id="adminLiveUrl" placeholder="官方链接（可选）" />
           <div class="broadcast-actions">
-            <button class="btn btn-primary" type="submit">添加</button>
+            <button class="btn btn-primary" type="submit" id="adminLiveSubmitButton">添加</button>
+            <button class="btn btn-secondary" type="button" id="adminLiveCancelEditButton" hidden>返回添加</button>
             <button class="btn btn-secondary" type="button" id="adminLivePanelClose">关闭</button>
           </div>
         </form>
@@ -2598,6 +2658,9 @@
     refs.adminBroadcastText = document.getElementById('adminBroadcastText');
     refs.adminLivePanel = document.getElementById('adminLivePanel');
     refs.adminLiveForm = document.getElementById('adminLiveForm');
+    refs.adminLiveEditingId = document.getElementById('adminLiveEditingId');
+    refs.adminLiveSubmitButton = document.getElementById('adminLiveSubmitButton');
+    refs.adminLiveCancelEditButton = document.getElementById('adminLiveCancelEditButton');
     refs.adminLiveList = document.getElementById('adminLiveList');
     refs.adminLivePager = document.getElementById('adminLivePager');
     refs.adminBroadcastCancel = document.getElementById('adminBroadcastCancel');
@@ -2854,7 +2917,12 @@
       if (row) row.remove();
     });
     document.getElementById('adminLivePanelClose')?.addEventListener('click', () => {
+      resetAdminLiveFormMode();
       if (refs.adminLivePanel) refs.adminLivePanel.hidden = true;
+    });
+    document.getElementById('adminLiveCancelEditButton')?.addEventListener('click', () => {
+      resetAdminLiveFormMode();
+      setSessionMessage('已返回添加 Live 模式。', 'is-success');
     });
 
     refs.cancelEditButton.addEventListener('click', () => {

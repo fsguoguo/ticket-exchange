@@ -569,6 +569,21 @@ function looksLikeDateText(value) {
   return /\d{4}\s*年|\d{1,2}\s*月\s*\d{1,2}\s*日|\d{1,2}\/\d{1,2}/.test(text);
 }
 
+function isGenericOfficialLiveTag(tag) {
+  const text = normalizeSpace(tag).toLowerCase();
+  if (!text) return false;
+  const compact = text
+    .replace(/[／]/g, '/')
+    .replace(/[\s·・._-]+/g, '')
+    .replace(/\//g, '');
+  return compact === '官方'
+    || compact === 'ライブ'
+    || compact === 'ライブイベント'
+    || compact === 'live'
+    || compact === 'event'
+    || compact === 'liveevent';
+}
+
 function normalizeLiveOption(option) {
   if (!option || typeof option !== 'object') return null;
   const franchise = normalizeSpace(option.franchise || '').toLowerCase();
@@ -580,7 +595,9 @@ function normalizeLiveOption(option) {
   if (!franchise || !title || !date || !venue) return null;
   if (!url && !isManual) return null;
   const city = normalizeSpace(option.city) || guessCityFromVenue(venue);
-  const tags = Array.isArray(option.tags) ? option.tags.map(normalizeSpace).filter(Boolean).slice(0, 8) : [];
+  const tags = Array.isArray(option.tags)
+    ? option.tags.map(normalizeSpace).filter(Boolean).filter(item => !isGenericOfficialLiveTag(item)).slice(0, 8)
+    : [];
   return {
     id: normalizeSpace(option.id) || buildLiveOptionId(franchise, date, url || `manual:${title}`, title),
     franchise,
@@ -1248,6 +1265,25 @@ async function handleApi(req, res, store, url) {
     store.liveOptions.unshift({ ...option, source: 'manual' });
     await saveStore(store);
     return sendJson(res, 201, { option });
+  }
+
+  if (req.method === 'PUT' && pathName.startsWith('/api/live-options/') && pathName.length > '/api/live-options/'.length) {
+    if (!user || user.role !== 'admin') return sendJson(res, 403, { error: 'admin only' });
+    const id = decodeURIComponent(String(pathName.split('/').pop() || ''));
+    const body = parseJson(await readBody(req));
+    if (!body) return sendJson(res, 400, { error: 'invalid json' });
+    const targetIndex = store.liveOptions.findIndex(item => {
+      const n = normalizeLiveOption(item);
+      return n && n.id === id;
+    });
+    if (targetIndex < 0) return sendJson(res, 404, { error: 'not found' });
+    const existing = normalizeLiveOption(store.liveOptions[targetIndex]);
+    if (!existing) return sendJson(res, 400, { error: 'invalid existing option' });
+    const option = normalizeLiveOption({ ...existing, ...body, id, source: existing.source });
+    if (!option) return sendJson(res, 400, { error: 'franchise, title, date and venue are required' });
+    store.liveOptions[targetIndex] = { ...option, source: existing.source };
+    await saveStore(store);
+    return sendJson(res, 200, { option });
   }
 
   if (req.method === 'DELETE' && pathName.startsWith('/api/live-options/') && pathName.length > '/api/live-options/'.length) {
