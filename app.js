@@ -96,9 +96,17 @@
     publish: '#post',
     center: '#notificationPanel'
   };
+  const dynamicAccentStyleId = 'dynamicAccentStyles';
+
+  function currentCspNonce() {
+    const nonceHolder = document.querySelector('style[nonce], script[nonce]');
+    return nonceHolder?.nonce || '';
+  }
 
   function injectStyles() {
     const style = document.createElement('style');
+    const nonce = currentCspNonce();
+    if (nonce) style.nonce = nonce;
     style.textContent = `
       .topbar-actions { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
       .notification-chip { display: inline-flex; align-items: center; gap: 8px; padding: 0; border-radius: 0; background: transparent; border: 0; box-shadow: none; backdrop-filter: none; color: var(--muted); white-space: nowrap; cursor: pointer; }
@@ -124,6 +132,25 @@
       .session-stat { padding: 12px; border-radius: 14px; background: var(--surface-strong); border: 1px solid var(--border); }
       .session-stat span { display: block; color: var(--muted-2); font-size: 0.8rem; margin-bottom: 6px; }
       .session-stat strong { font-size: 1.02rem; }
+      .listing-card.accent-bangdream-transfer { --accent: #ff6aa2; }
+      .listing-card.accent-bangdream-seeking { --accent: #77f0b3; }
+      .listing-card.accent-bangdream-swap { --accent: #ffd36e; }
+      .listing-card.accent-lovelive-transfer { --accent: #6de2ff; }
+      .listing-card.accent-lovelive-seeking { --accent: #9a7bff; }
+      .listing-card.accent-lovelive-swap { --accent: #6de2ff; }
+      .listing-card.accent-imas-transfer,
+      .listing-card.accent-imas-seeking,
+      .listing-card.accent-imas-swap { --accent: #ff8f70; }
+      .listing-card.accent-other-transfer,
+      .listing-card.accent-other-seeking,
+      .listing-card.accent-other-swap { --accent: #8bd3ff; }
+      .fade-in-delay-sm { animation-delay: 80ms; }
+      .fade-in-delay-md { animation-delay: 120ms; }
+      .date-list-grid { display: grid; gap: 8px; }
+      .detail-badge-row { justify-content: flex-start; margin-bottom: 12px; }
+      .detail-meta-line { margin-top: 8px; }
+      .panel-title { margin: 0; font-family: 'Noto Serif SC', 'Songti SC', serif; }
+      .trash-title { margin-bottom: 0; }
       .composer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
       .composer-badge, .status-pill, .tiny-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: rgba(76, 141, 255, 0.08); border: 1px solid var(--border); color: var(--muted); font-size: 0.84rem; }
       .choice-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
@@ -615,6 +642,44 @@
     if (franchise === 'lovelive' && kind === 'seeking') return '#9a7bff';
     if (franchise === 'imas') return '#ff8f70';
     return '#8bd3ff';
+  }
+
+  function normalizeAccentColor(value) {
+    const text = String(value || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(text)) return text.toLowerCase();
+    if (/^#[0-9a-f]{3}$/i.test(text)) {
+      return `#${text.slice(1).split('').map(char => `${char}${char}`).join('')}`.toLowerCase();
+    }
+    return '';
+  }
+
+  function accentClassFromColor(color) {
+    return `accent-color-${color.replace('#', '')}`;
+  }
+
+  function syncDynamicAccentStyles(items) {
+    const colors = Array.from(new Set(
+      (Array.isArray(items) ? items : [])
+        .map(listing => normalizeAccentColor(listing?.accent || pickAccent(listing?.franchise, listing?.kind)))
+        .filter(Boolean)
+    ));
+    let style = document.getElementById(dynamicAccentStyleId);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = dynamicAccentStyleId;
+      const nonce = currentCspNonce();
+      if (nonce) style.nonce = nonce;
+      document.head.appendChild(style);
+    }
+    style.textContent = colors.map(color => `.listing-card.${accentClassFromColor(color)} { --accent: ${color}; }`).join('\n');
+  }
+
+  function listingAccentClass(listing) {
+    const color = normalizeAccentColor(listing?.accent || pickAccent(listing?.franchise, listing?.kind));
+    if (color) return accentClassFromColor(color);
+    const franchise = ['bangdream', 'lovelive', 'imas', 'other'].includes(listing?.franchise) ? listing.franchise : 'other';
+    const kind = ['transfer', 'seeking', 'swap'].includes(listing?.kind) ? listing.kind : 'transfer';
+    return `accent-${franchise}-${kind}`;
   }
 
   function franchiseLabel(franchise) {
@@ -1682,9 +1747,10 @@
     const totalPages = clampListingPage(items);
     const startIndex = (state.currentPage - 1) * listingPageSize;
     const pageItems = items.slice(startIndex, startIndex + listingPageSize);
+    syncDynamicAccentStyles(pageItems);
 
     refs.listingList.innerHTML = pageItems.map(listing => `
-      <article class="listing-card fade-in ${canManageListing(listing) ? 'is-owned' : ''}" style="--accent:${listing.accent || pickAccent(listing.franchise, listing.kind)}">
+      <article class="listing-card fade-in ${listingAccentClass(listing)} ${canManageListing(listing) ? 'is-owned' : ''}">
         <div class="card-top">
           <div class="card-main">
             <h3 class="card-title">${listing.title}</h3>
@@ -1857,7 +1923,7 @@
     refs.detailContent.innerHTML = `
       <div class="detail-top">
         <div>
-          <div class="badge-row" style="justify-content:flex-start; margin-bottom:12px;">
+          <div class="badge-row detail-badge-row">
             <span class="badge"><strong>${listing.franchiseLabel}</strong></span>
             <span class="badge"><strong>${listing.kindLabel}</strong></span>
             ${listing.isPremium ? '<span class="badge badge-premium"><strong>严选票</strong></span>' : '<span class="badge badge-success"><strong>非严选票</strong></span>'}
@@ -1866,7 +1932,7 @@
             ${statusBadge(listing.status)}
           </div>
           <h2 class="detail-title">${listing.title}</h2>
-          <div class="muted" style="margin-top:8px;">发布者：${getOwnerName(listing)} · 收藏 ${listing.favoriteCount || 0} · ${formatListingDates(listing)}</div>
+          <div class="muted detail-meta-line">发布者：${getOwnerName(listing)} · 收藏 ${listing.favoriteCount || 0} · ${formatListingDates(listing)}</div>
         </div>
         <button class="btn btn-secondary detail-close" type="button" id="detailCloseButton">关闭</button>
       </div>
@@ -2713,7 +2779,7 @@
       notificationPanel.id = 'notificationPanel';
       notificationPanel.innerHTML = `
         <div class="panel-head">
-          <h3 style="margin:0; font-family:'Noto Serif SC', 'Songti SC', serif;">通知中心</h3>
+          <h3 class="panel-title">通知中心</h3>
           <div class="panel-head-actions" id="notificationPanelActions">
             <span class="tiny-pill">最新动态</span>
             <button class="btn pager-button" type="button" id="notificationTrashButton">废纸篓</button>
@@ -2731,7 +2797,7 @@
       broadcastPanel.id = 'adminBroadcastPanel';
       broadcastPanel.hidden = true;
       broadcastPanel.innerHTML = `
-        <div class="panel-head"><h3 style="margin:0; font-family:'Noto Serif SC', 'Songti SC', serif;">管理员全体通知</h3><span class="tiny-pill">全员可见</span></div>
+        <div class="panel-head"><h3 class="panel-title">管理员全体通知</h3><span class="tiny-pill">全员可见</span></div>
         <form class="broadcast-form" id="adminBroadcastForm">
           <textarea class="field" id="adminBroadcastText" rows="4" placeholder="请输入要发送给全体用户的通知内容"></textarea>
           <div class="broadcast-actions">
@@ -2748,7 +2814,7 @@
       livePanel.id = 'adminLivePanel';
       livePanel.hidden = true;
       livePanel.innerHTML = `
-        <div class="panel-head"><h3 style="margin:0;font-family:'Noto Serif SC','Songti SC',serif;">管理官方 Live 选项</h3><span class="tiny-pill">仅管理员</span></div>
+        <div class="panel-head"><h3 class="panel-title">管理官方 Live 选项</h3><span class="tiny-pill">仅管理员</span></div>
         <form class="broadcast-form" id="adminLiveForm">
           <input type="hidden" id="adminLiveEditingId" />
           <select class="field" id="adminLiveFranchise">
@@ -2762,7 +2828,7 @@
           <input class="field" type="date" id="adminLiveDate" />
           <div class="choice-card">
             <span class="choice-label">额外日期（可选）</span>
-            <div id="adminLiveDatesList" style="display:grid; gap:8px;"></div>
+            <div class="date-list-grid" id="adminLiveDatesList"></div>
             <button class="btn btn-secondary" type="button" id="adminLiveAddDateButton">添加日期</button>
           </div>
           <input class="field" id="adminLiveTags" placeholder="标签，逗号分隔（可选）" />
@@ -2847,10 +2913,10 @@
           <div class="detail-shell">
             <div class="detail-top">
               <div>
-                <div class="badge-row" style="justify-content:flex-start; margin-bottom:12px;">
+                <div class="badge-row detail-badge-row">
                   <span class="tiny-pill">已移除通知</span>
                 </div>
-                <h2 class="detail-title" style="margin-bottom:0;">废纸篓</h2>
+                <h2 class="detail-title trash-title">废纸篓</h2>
               </div>
               <div class="detail-actions">
                 <button class="btn btn-secondary" type="button" id="trashCloseButton">关闭</button>

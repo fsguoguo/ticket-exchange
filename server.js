@@ -64,27 +64,32 @@ const cspConnectSources = [...new Set([
   ...(isProduction ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000'])
 ])].join(' ');
 
-const securityHeaders = {
-  'Content-Security-Policy': [
+function buildSecurityHeaders(cspNonce = '') {
+  const nonceSource = cspNonce ? ` 'nonce-${cspNonce}'` : '';
+  const headers = {
+    'Content-Security-Policy': [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "img-src 'self' data: https:",
-    "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline'",
+    `style-src 'self'${nonceSource}`,
+    `script-src 'self'${nonceSource}`,
     `connect-src ${cspConnectSources}`,
     "form-action 'self'"
-  ].join('; '),
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Cross-Origin-Opener-Policy': 'same-origin'
-};
+    ].join('; '),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Cross-Origin-Opener-Policy': 'same-origin'
+  };
 
-if (isProduction) {
-  securityHeaders['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+  if (isProduction) {
+    headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+  }
+
+  return headers;
 }
 
 const LIVE_REFRESH_INTERVAL_MS = Number(process.env.LIVE_REFRESH_INTERVAL_MS || 1000 * 60 * 60 * 6);
@@ -1402,10 +1407,20 @@ function buildCorsHeaders(req) {
 
 function responseHeaders(res, headers = {}, includeCors = false) {
   return {
-    ...securityHeaders,
+    ...buildSecurityHeaders(res.__cspNonce || ''),
     ...(includeCors ? (res.__corsHeaders || {}) : {}),
     ...headers
   };
+}
+
+function createCspNonce() {
+  return crypto.randomBytes(16).toString('base64url');
+}
+
+function addCspNonceToHtml(html, nonce) {
+  return String(html || '')
+    .replace(/<style\b(?![^>]*\bnonce=)([^>]*)>/gi, (_match, attrs) => `<style nonce="${nonce}"${attrs}>`)
+    .replace(/<script\b(?![^>]*\bnonce=)([^>]*)>/gi, (_match, attrs) => `<script nonce="${nonce}"${attrs}>`);
 }
 
 function sendJson(res, statusCode, payload, extraHeaders = {}) {
@@ -2054,10 +2069,16 @@ async function serveStatic(req, res, url) {
   try {
     const data = await fsp.readFile(safePath);
     const ext = path.extname(safePath).toLowerCase();
+    const isHtml = ext === '.html';
+    const cspNonce = isHtml ? createCspNonce() : '';
+    const body = isHtml ? addCspNonceToHtml(data.toString('utf8'), cspNonce) : data;
+    if (isHtml) {
+      res.__cspNonce = cspNonce;
+    }
     res.writeHead(200, responseHeaders(res, {
       'Content-Type': mimeTypes[ext] || 'application/octet-stream'
     }, true));
-    res.end(data);
+    res.end(body);
   } catch (error) {
     return sendText(res, 404, 'Not Found');
   }

@@ -26,23 +26,25 @@ CONFIGURED_ALLOWED_ORIGINS = {
 DEFAULT_ALLOWED_ORIGINS = {'https://ticket-exchange.onrender.com'}
 PUBLIC_STATIC_FILES = {'index.html', 'register.html', 'app.js', 'config.js'}
 
-SECURITY_HEADERS = {
-    'Content-Security-Policy': (
+def build_security_headers(csp_nonce: str = '') -> dict[str, str]:
+    nonce_source = f" 'nonce-{csp_nonce}'" if csp_nonce else ''
+    headers = {
+        'Content-Security-Policy': (
         "default-src 'self'; base-uri 'self'; object-src 'none'; "
         "frame-ancestors 'none'; img-src 'self' data: https:; "
-        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+        f"style-src 'self'{nonce_source}; script-src 'self'{nonce_source}; "
         "connect-src 'self' https://ticket-exchange.onrender.com "
         "http://localhost:3000 http://127.0.0.1:3000; form-action 'self'"
-    ),
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Cross-Origin-Opener-Policy': 'same-origin',
-}
-
-if IS_PRODUCTION:
-    SECURITY_HEADERS['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        ),
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+    }
+    if IS_PRODUCTION:
+        headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return headers
 
 
 DEFAULT_PASSWORDS = {
@@ -440,10 +442,27 @@ def cors_headers(handler: BaseHTTPRequestHandler) -> dict[str, str]:
     }
 
 
-def send_headers(handler: BaseHTTPRequestHandler, headers: dict[str, str]):
-    merged = {**SECURITY_HEADERS, **headers}
+def send_headers(handler: BaseHTTPRequestHandler, headers: dict[str, str], csp_nonce: str = ''):
+    merged = {**build_security_headers(csp_nonce), **headers}
     for key, value in merged.items():
         handler.send_header(key, value)
+
+
+def add_csp_nonce_to_html(content: bytes, nonce: str) -> bytes:
+    html = content.decode('utf-8')
+    html = re.sub(
+        r'<style\b(?![^>]*\bnonce=)([^>]*)>',
+        lambda match: f'<style nonce="{nonce}"{match.group(1)}>',
+        html,
+        flags=re.I,
+    )
+    html = re.sub(
+        r'<script\b(?![^>]*\bnonce=)([^>]*)>',
+        lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
+        html,
+        flags=re.I,
+    )
+    return html.encode('utf-8')
 
 
 def resolve_static_path(request_path: str) -> Path | None:
@@ -486,14 +505,18 @@ def static_response(handler: BaseHTTPRequestHandler, file_path: Path):
     if file_path.name not in PUBLIC_STATIC_FILES or not file_path.exists() or not file_path.is_file():
         json_response(handler, 404, {'error': 'not found'})
         return
-    content = file_path.read_bytes()
     mime = mimetypes.guess_type(str(file_path))[0] or 'application/octet-stream'
+    content = file_path.read_bytes()
+    csp_nonce = ''
+    if mime.startswith('text/html'):
+        csp_nonce = secrets.token_urlsafe(16)
+        content = add_csp_nonce_to_html(content, csp_nonce)
     handler.send_response(200)
     send_headers(handler, {
         **cors_headers(handler),
         'Content-Type': mime,
         'Content-Length': str(len(content))
-    })
+    }, csp_nonce)
     handler.end_headers()
     handler.wfile.write(content)
 
