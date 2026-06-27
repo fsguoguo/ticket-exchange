@@ -866,13 +866,30 @@
     refs.draftForm.elements.officialLiveDates.value = JSON.stringify(normalized);
   }
 
+  function buildLiveSeriesKey(option) {
+    if (!option) return '';
+    const franchise = String(option.franchise || '').trim().toLowerCase();
+    const title = sanitizeOfficialLiveTitle(String(option.title || ''))
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    const venue = String(option.venue || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!franchise || !title || !venue) return '';
+    return `${franchise}|${title}|${venue}`;
+  }
+
   function collectMatchedOfficialLiveDates(item) {
     if (!item || !item.franchise) return [];
+    const targetKey = buildLiveSeriesKey(item);
+    if (!targetKey) return [];
     const pool = Array.isArray(state.liveOptionsByFranchise[item.franchise]) ? state.liveOptionsByFranchise[item.franchise] : [];
     return Array.from(new Set(pool
       .map(normalizeLiveOption)
       .filter(Boolean)
-      .filter(option => option.title === item.title && option.venue === item.venue)
+      .filter(option => buildLiveSeriesKey(option) === targetKey)
       .map(option => option.date)
       .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))))).sort();
   }
@@ -1000,7 +1017,8 @@
     for (const item of options) {
       const option = normalizeLiveOption(item);
       if (!option) continue;
-      const mergeKey = `${option.franchise}|${option.title}|${option.venue}`;
+      const mergeKey = buildLiveSeriesKey(option);
+      if (!mergeKey) continue;
       const existing = mergedMap.get(mergeKey);
       if (!existing || String(option.date) < String(existing.date)) {
         mergedMap.set(mergeKey, option);
@@ -1008,7 +1026,7 @@
     }
 
     for (const option of mergedMap.values()) {
-      const mergedId = `merged:${option.franchise}|${option.title}|${option.venue}`;
+      const mergedId = `merged:${buildLiveSeriesKey(option)}`;
       liveOptionLookup.set(mergedId, option);
       const node = document.createElement('option');
       node.value = mergedId;
@@ -2239,6 +2257,13 @@
     const all = Object.values(state.liveOptionsByFranchise).flat();
     const target = all.find(item => String(item.id) === String(id));
     if (!target) return;
+    const targetKey = buildLiveSeriesKey(target);
+    const matchedDates = Array.from(new Set(all
+      .map(normalizeLiveOption)
+      .filter(Boolean)
+      .filter(option => buildLiveSeriesKey(option) === targetKey)
+      .map(option => option.date)
+      .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))))).sort();
     document.getElementById('adminLiveFranchise').value = target.franchise || 'other';
     document.getElementById('adminLiveTitle').value = target.title || '';
     document.getElementById('adminLiveVenue').value = target.venue || '';
@@ -2248,7 +2273,7 @@
     if (refs.adminLiveEditingId) refs.adminLiveEditingId.value = target.id;
     if (refs.adminLiveSubmitButton) refs.adminLiveSubmitButton.textContent = '保存修改';
     if (refs.adminLiveCancelEditButton) refs.adminLiveCancelEditButton.hidden = false;
-    setAdminLiveExtraDates([]);
+    setAdminLiveExtraDates(matchedDates.filter(value => value !== target.date));
     setSessionMessage(`正在编辑 Live：${target.title}`, 'is-success');
   }
 
