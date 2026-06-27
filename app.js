@@ -869,6 +869,17 @@
   function buildLiveSeriesKey(option) {
     if (!option) return '';
     const franchise = String(option.franchise || '').trim().toLowerCase();
+    const rawUrl = String(option.url || '').trim();
+    if (franchise && rawUrl) {
+      try {
+        const parsedUrl = new URL(rawUrl);
+        const normalizedPath = parsedUrl.pathname.replace(/\/+$/, '') || '/';
+        const normalizedQuery = parsedUrl.search || '';
+        return `${franchise}|url|${parsedUrl.host.toLowerCase()}${normalizedPath}${normalizedQuery}`;
+      } catch {
+        // Keep fallback grouping for non-standard URLs.
+      }
+    }
     const title = sanitizeOfficialLiveTitle(String(option.title || ''))
       .toLowerCase()
       .replace(/\s+/g, ' ')
