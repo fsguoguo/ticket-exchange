@@ -728,8 +728,13 @@
     const url = String(option.url || '').trim();
     const sourceRaw = String(option.source || '').trim().toLowerCase();
     const source = sourceRaw === 'manual' || url.startsWith('manual://') ? 'manual' : 'official';
-    if (!id || !franchise || !title || !date || !venue) return null;
-    return { id, franchise, title, date, city, venue, tags, url, source, franchiseLabel: option.franchiseLabel || '' };
+    const dates = parseFlexibleDateList([
+      ...(Array.isArray(option.dates) ? option.dates : []),
+      ...(Array.isArray(option.eventDates) ? option.eventDates : []),
+      date
+    ]);
+    if (!id || !franchise || !title || !dates.length || !venue) return null;
+    return { id, franchise, title, date: dates[0], dates, city, venue, tags, url, source, franchiseLabel: option.franchiseLabel || '' };
   }
 
   function visibleTicketTags(tags) {
@@ -901,8 +906,13 @@
       .map(normalizeLiveOption)
       .filter(Boolean)
       .filter(option => buildLiveSeriesKey(option) === targetKey)
-      .map(option => option.date)
+      .flatMap(option => Array.isArray(option.dates) ? option.dates : [option.date])
       .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))))).sort();
+  }
+
+  function liveOptionDateText(item) {
+    const dates = parseFlexibleDateList(Array.isArray(item?.dates) ? item.dates : [item?.date]);
+    return dates.length ? dates.join(' / ') : String(item?.date || '');
   }
 
   function createExtraDateField(name, value = '') {
@@ -1031,8 +1041,20 @@
       const mergeKey = buildLiveSeriesKey(option);
       if (!mergeKey) continue;
       const existing = mergedMap.get(mergeKey);
-      if (!existing || String(option.date) < String(existing.date)) {
+      if (!existing) {
         mergedMap.set(mergeKey, option);
+      } else {
+        const dates = parseFlexibleDateList([
+          ...(Array.isArray(existing.dates) ? existing.dates : [existing.date]),
+          ...(Array.isArray(option.dates) ? option.dates : [option.date])
+        ]);
+        mergedMap.set(mergeKey, {
+          ...existing,
+          ...option,
+          date: dates[0] || existing.date || option.date,
+          dates,
+          tags: option.tags?.length ? option.tags : existing.tags
+        });
       }
     }
 
@@ -1062,16 +1084,17 @@
       return;
     }
     const cleanedTitle = sanitizeOfficialLiveTitle(item.title) || item.title;
+    const matchedDates = collectMatchedOfficialLiveDates(item);
+    const primaryDate = matchedDates[0] || item.date;
     refs.draftForm.elements.title.value = cleanedTitle;
-    refs.draftForm.elements.date.value = item.date;
+    refs.draftForm.elements.date.value = primaryDate;
     refs.draftForm.elements.meta.value = item.venue;
     if (refs.draftForm.elements.officialLiveId) {
       refs.draftForm.elements.officialLiveId.value = item.id;
     }
     setOfficialLiveTags(item.tags);
-    const matchedDates = collectMatchedOfficialLiveDates(item);
     setOfficialLiveDates(matchedDates);
-    setPublishExtraDates(matchedDates.filter(value => value !== item.date));
+    setPublishExtraDates(matchedDates.filter(value => value !== primaryDate));
     refs.composerFeedback.hidden = false;
     refs.composerFeedback.textContent = `已填入官方 Live：${cleanedTitle}`;
   }
@@ -2211,7 +2234,7 @@
       meta.className = 'muted';
       meta.style.margin = '4px 0 8px';
       meta.style.fontSize = '0.84rem';
-      meta.textContent = `${fl} / ${item.venue || ''} / ${item.date || ''}`;
+      meta.textContent = `${fl} / ${item.venue || ''} / ${liveOptionDateText(item)}`;
 
       const actions = document.createElement('div');
       actions.className = 'review-actions';
@@ -2273,18 +2296,19 @@
       .map(normalizeLiveOption)
       .filter(Boolean)
       .filter(option => buildLiveSeriesKey(option) === targetKey)
-      .map(option => option.date)
+      .flatMap(option => Array.isArray(option.dates) ? option.dates : [option.date])
       .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))))).sort();
+    const primaryDate = matchedDates[0] || target.date;
     document.getElementById('adminLiveFranchise').value = target.franchise || 'other';
     document.getElementById('adminLiveTitle').value = target.title || '';
     document.getElementById('adminLiveVenue').value = target.venue || '';
-    document.getElementById('adminLiveDate').value = target.date || '';
+    document.getElementById('adminLiveDate').value = primaryDate || '';
     document.getElementById('adminLiveTags').value = Array.isArray(target.tags) ? target.tags.join(', ') : '';
     document.getElementById('adminLiveUrl').value = target.url || '';
     if (refs.adminLiveEditingId) refs.adminLiveEditingId.value = target.id;
     if (refs.adminLiveSubmitButton) refs.adminLiveSubmitButton.textContent = '保存修改';
     if (refs.adminLiveCancelEditButton) refs.adminLiveCancelEditButton.hidden = false;
-    setAdminLiveExtraDates(matchedDates.filter(value => value !== target.date));
+    setAdminLiveExtraDates(matchedDates.filter(value => value !== primaryDate));
     setSessionMessage(`正在编辑 Live：${target.title}`, 'is-success');
   }
 
@@ -2309,6 +2333,7 @@
       setSessionMessage('请至少提供一个有效日期（YYYY-MM-DD）。', 'is-error');
       return;
     }
+    const primaryDate = allDates[0];
     const tags = tagsRaw ? normalizeOfficialLiveTags(tagsRaw.split(',').map(t => t.trim()).filter(Boolean)) : [];
     try {
       if (editingId) {
@@ -2318,24 +2343,26 @@
             franchise,
             title,
             venue,
-            date,
+            date: primaryDate,
+            dates: allDates,
             tags,
-            url: url || `manual://${franchise}/${date}/${Date.now()}`
+            url: url || `manual://${franchise}/${primaryDate}/${Date.now()}`
           })
         });
         setSessionMessage(`已更新 Live：${title}`, 'is-success');
       } else {
-        await Promise.all(allDates.map(currentDate => apiFetch('/api/live-options', {
+        await apiFetch('/api/live-options', {
           method: 'POST',
           body: JSON.stringify({
             franchise,
             title,
             venue,
-            date: currentDate,
+            date: primaryDate,
+            dates: allDates,
             tags,
-            url: url || `manual://${franchise}/${currentDate}/${Date.now()}`
+            url: url || `manual://${franchise}/${primaryDate}/${Date.now()}`
           })
-        })));
+        });
         setSessionMessage(`已添加 Live：${title}（${allDates.length} 个日期）`, 'is-success');
       }
       resetAdminLiveFormMode();

@@ -503,6 +503,14 @@ function normalizeEventDates(dates, fallbackDate) {
   return [...new Set(normalized)].sort();
 }
 
+function normalizeLiveDates(option, fallbackDate) {
+  const explicitDates = [
+    ...(Array.isArray(option?.dates) ? option.dates : []),
+    ...(Array.isArray(option?.eventDates) ? option.eventDates : [])
+  ];
+  return normalizeEventDates(explicitDates, fallbackDate);
+}
+
 function latestEventDate(dates, fallbackDate) {
   const normalized = normalizeEventDates(dates, fallbackDate);
   if (!normalized.length) return normalizeSpace(fallbackDate);
@@ -789,6 +797,8 @@ function normalizeLiveOption(option) {
   const isManual = normalizeSpace(option.source) === 'manual';
   if (!franchise || !title || !date || !venue) return null;
   if (!url && !isManual) return null;
+  const dates = normalizeLiveDates(option, date);
+  if (!dates.length) return null;
   const city = normalizeSpace(option.city) || guessCityFromVenue(venue);
   const tags = Array.isArray(option.tags)
     ? option.tags
@@ -802,7 +812,8 @@ function normalizeLiveOption(option) {
     franchise,
     franchiseLabel: normalizeSpace(option.franchiseLabel),
     title,
-    date,
+    date: dates[0],
+    dates,
     city,
     venue,
     tags,
@@ -817,9 +828,10 @@ function buildLiveOptionLatestDateMap(liveOptions) {
     const item = normalizeLiveOption(rawItem);
     if (!item) continue;
     const key = `${item.franchise}|${item.title}|${item.venue}`;
+    const latestDate = latestEventDate(item.dates, item.date);
     const existing = latestMap.get(key);
-    if (!existing || String(item.date) > String(existing)) {
-      latestMap.set(key, item.date);
+    if (!existing || String(latestDate) > String(existing)) {
+      latestMap.set(key, latestDate);
     }
   }
   return latestMap;
@@ -1156,9 +1168,15 @@ function mergeLiveOption(existing, incoming) {
   const incomingTags = Array.isArray(incoming.tags) ? incoming.tags.map(normalizeSpace).filter(Boolean) : [];
   const existingTags = Array.isArray(existing.tags) ? existing.tags.map(normalizeSpace).filter(Boolean) : [];
   const preferredTags = incomingTags.length ? incomingTags : existingTags;
+  const dates = normalizeEventDates([
+    ...(Array.isArray(existing.dates) ? existing.dates : []),
+    ...(Array.isArray(incoming.dates) ? incoming.dates : [])
+  ], incoming.date || existing.date);
   return {
     ...existing,
     ...incoming,
+    date: dates[0] || incoming.date || existing.date,
+    dates,
     tags: preferredTags.slice(0, 8)
   };
 }
@@ -1320,7 +1338,7 @@ async function refreshLiveOptions(store, options = {}) {
       unique.set(key, mergeLiveOption(previous, item));
     }
     const liveOptions = [...unique.values()]
-      .filter(item => item.date >= todayKey())
+      .filter(item => latestEventDate(item.dates, item.date) >= todayKey())
       .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.title).localeCompare(String(b.title)));
     store.liveOptions = liveOptions;
     store.liveOptionsUpdatedAt = new Date().toISOString();
@@ -1488,7 +1506,7 @@ async function handleApi(req, res, store, url) {
       .filter(Boolean)
       .filter(item => {
         const key = `${item.franchise}|${item.title}|${item.venue}`;
-        const latest = latestMap.get(key) || item.date;
+        const latest = latestMap.get(key) || latestEventDate(item.dates, item.date);
         return latest >= todayKey();
       })
       .filter(item => !franchise || item.franchise === franchise)
