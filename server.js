@@ -3,6 +3,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { load: loadHtml } = require('cheerio');
 const { Pool } = require('pg');
 
@@ -15,6 +16,8 @@ const allowLocalStore = ['1', 'true', 'yes'].includes(String(process.env.ALLOW_L
 const dbConnectTimeoutMs = Math.max(1000, Number(process.env.DB_CONNECT_TIMEOUT_MS || 10000));
 const dbQueryTimeoutMs = Math.max(1000, Number(process.env.DB_QUERY_TIMEOUT_MS || 10000));
 const notificationDedupWindowMs = Math.max(0, Number(process.env.NOTIFICATION_DEDUP_WINDOW_MS || 30000));
+const bcryptRounds = Math.min(14, Math.max(10, finiteNumber(process.env.BCRYPT_ROUNDS, 12)));
+const sessionTtlMs = Math.max(60000, finiteNumber(process.env.SESSION_TTL_MS || process.env.TOKEN_TTL_MS, 1000 * 60 * 60 * 24 * 7));
 const pool = databaseUrl
   ? new Pool({
       connectionString: databaseUrl,
@@ -57,6 +60,11 @@ const publicStaticFiles = new Set([
   'app.js',
   'config.js'
 ]);
+
+function finiteNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 const cspConnectSources = [...new Set([
   "'self'",
@@ -391,11 +399,13 @@ function normalizeStore(store) {
     if (user.name === 'admin') {
       user.role = 'admin';
     }
-    if (!user.passwordSalt || !user.passwordHash) {
+    const algo = passwordAlgorithm(user);
+    if (!user.passwordHash || (algo === 'sha256' && !user.passwordSalt)) {
       const defaultPassword = DEFAULT_PASSWORDS[user.name] || '123456';
       const passwordRecord = makePasswordRecord(defaultPassword);
-      user.passwordSalt = passwordRecord.salt;
-      user.passwordHash = passwordRecord.hash;
+      applyPasswordRecord(user, passwordRecord);
+    } else if (!user.passwordAlgo) {
+      user.passwordAlgo = algo;
     }
   }
 
@@ -435,13 +445,19 @@ async function ensureStore() {
     await databaseReady;
     const result = await pool.query('SELECT data FROM app_state WHERE id = 1');
     if (!result.rowCount) {
-      const store = seedStore();
+      const store = normalizeStore(seedStore());
       pruneExpiredListings(store);
+      pruneExpiredSessions(store);
       await saveStore(store);
       return store;
     }
     const store = normalizeStore(result.rows[0].data || seedStore());
-    if (pruneExpiredListings(store) || pruneExpiredLiveOptions(store)) {
+    const changed = [
+      pruneExpiredListings(store),
+      pruneExpiredLiveOptions(store),
+      pruneExpiredSessions(store)
+    ].some(Boolean);
+    if (changed) {
       await saveStore(store);
     }
     return store;
@@ -450,20 +466,21 @@ async function ensureStore() {
   await fsp.mkdir(dataDir, { recursive: true });
   try {
     const raw = await fsp.readFile(storeFile, 'utf8');
-    const store = JSON.parse(raw);
-    if (Array.isArray(store.listings)) {
-      store.listings.forEach(listing => {
-        if (!Array.isArray(listing.comments)) listing.comments = [];
-      });
-    }
-    if (pruneExpiredListings(store) || pruneExpiredLiveOptions(store)) {
+    const store = normalizeStore(JSON.parse(raw));
+    const changed = [
+      pruneExpiredListings(store),
+      pruneExpiredLiveOptions(store),
+      pruneExpiredSessions(store)
+    ].some(Boolean);
+    if (changed) {
       await saveStore(store);
     }
     return store;
   } catch (error) {
-    const store = seedStore();
+    const store = normalizeStore(seedStore());
     pruneExpiredListings(store);
     pruneExpiredLiveOptions(store);
+    pruneExpiredSessions(store);
     await saveStore(store);
     return store;
   }
@@ -624,13 +641,41 @@ function isSafeUsername(value) {
   return /^[A-Za-z0-9_-]{3,32}$/.test(String(value || ''));
 }
 
-function makePasswordRecord(password) {
+function makeSha256PasswordRecord(password) {
   const salt = crypto.randomBytes(8).toString('hex');
   const hash = crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
-  return { salt, hash };
+  return { passwordAlgo: 'sha256', passwordSalt: salt, passwordHash: hash };
 }
 
-function verifyPassword(password, salt, expectedHash) {
+function makePasswordRecord(password) {
+  return {
+    passwordAlgo: 'bcrypt',
+    passwordSalt: '',
+    passwordHash: bcrypt.hashSync(password, bcryptRounds)
+  };
+}
+
+function isBcryptHash(value) {
+  return /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
+}
+
+function passwordAlgorithm(user) {
+  const explicit = String(user?.passwordAlgo || '').trim().toLowerCase();
+  if (explicit) return explicit;
+  return isBcryptHash(user?.passwordHash) ? 'bcrypt' : 'sha256';
+}
+
+function applyPasswordRecord(user, record) {
+  user.passwordAlgo = record.passwordAlgo;
+  user.passwordHash = record.passwordHash;
+  if (record.passwordSalt) {
+    user.passwordSalt = record.passwordSalt;
+  } else {
+    delete user.passwordSalt;
+  }
+}
+
+function verifySha256Password(password, salt, expectedHash) {
   const actualHash = crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
   if (actualHash.length !== String(expectedHash || '').length) return false;
   try {
@@ -638,6 +683,23 @@ function verifyPassword(password, salt, expectedHash) {
   } catch (error) {
     return false;
   }
+}
+
+function verifyPasswordRecord(password, user) {
+  const algo = passwordAlgorithm(user);
+  if (algo === 'bcrypt') {
+    try {
+      return {
+        valid: bcrypt.compareSync(password, String(user?.passwordHash || '')),
+        needsUpgrade: false
+      };
+    } catch (error) {
+      return { valid: false, needsUpgrade: false };
+    }
+  }
+
+  const valid = verifySha256Password(password, user?.passwordSalt || '', user?.passwordHash || '');
+  return { valid, needsUpgrade: valid };
 }
 
 function publicUser(user) {
@@ -1445,11 +1507,151 @@ function getToken(req) {
   return '';
 }
 
-function getCurrentUser(store, req) {
+function sessionTimestamp(value) {
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function buildSessionRecord(userId, token = crypto.randomBytes(16).toString('hex'), now = Date.now()) {
+  return {
+    token,
+    userId,
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + sessionTtlMs).toISOString()
+  };
+}
+
+function removeSession(store, token) {
+  if (!token) return false;
+  let changed = false;
+  if (store.tokens && Object.prototype.hasOwnProperty.call(store.tokens, token)) {
+    delete store.tokens[token];
+    changed = true;
+  }
+  const before = Array.isArray(store.sessions) ? store.sessions.length : 0;
+  store.sessions = (Array.isArray(store.sessions) ? store.sessions : []).filter(item => item?.token !== token);
+  return changed || store.sessions.length !== before;
+}
+
+function normalizeSessionToken(store, token) {
+  const tokenValue = store.tokens?.[token];
+  const sessions = Array.isArray(store.sessions) ? store.sessions : [];
+  const existingSession = sessions.find(item => item?.token === token) || {};
+  let changed = false;
+  let userId = '';
+  let createdAt = '';
+  let expiresAt = '';
+
+  if (typeof tokenValue === 'string') {
+    userId = tokenValue;
+    changed = true;
+  } else if (tokenValue && typeof tokenValue === 'object') {
+    userId = tokenValue.userId || '';
+    createdAt = tokenValue.createdAt || '';
+    expiresAt = tokenValue.expiresAt || '';
+  }
+
+  userId = userId || existingSession.userId || '';
+  createdAt = createdAt || existingSession.createdAt || '';
+  expiresAt = expiresAt || existingSession.expiresAt || '';
+  if (!userId) {
+    changed = removeSession(store, token) || changed;
+    return { record: null, changed };
+  }
+
+  const now = Date.now();
+  const createdMs = createdAt && createdAt !== 'now' ? sessionTimestamp(createdAt) : 0;
+  const normalizedCreatedAt = createdMs > 0 ? new Date(createdMs).toISOString() : new Date(now).toISOString();
+  const expiresMs = expiresAt && expiresAt !== 'now' ? sessionTimestamp(expiresAt) : 0;
+  const normalizedExpiresAt = expiresMs > 0
+    ? new Date(expiresMs).toISOString()
+    : new Date((createdMs > 0 ? createdMs : now) + sessionTtlMs).toISOString();
+  const record = { token, userId, createdAt: normalizedCreatedAt, expiresAt: normalizedExpiresAt };
+
+  const currentTokenValue = store.tokens?.[token];
+  if (typeof currentTokenValue !== 'object'
+    || currentTokenValue.userId !== record.userId
+    || currentTokenValue.createdAt !== record.createdAt
+    || currentTokenValue.expiresAt !== record.expiresAt) {
+    store.tokens[token] = {
+      userId: record.userId,
+      createdAt: record.createdAt,
+      expiresAt: record.expiresAt
+    };
+    changed = true;
+  }
+
+  const sessionIndex = sessions.findIndex(item => item?.token === token);
+  if (sessionIndex >= 0) {
+    const current = sessions[sessionIndex];
+    if (current.userId !== record.userId || current.createdAt !== record.createdAt || current.expiresAt !== record.expiresAt) {
+      sessions[sessionIndex] = record;
+      changed = true;
+    }
+  } else {
+    sessions.push(record);
+    changed = true;
+  }
+  store.sessions = sessions;
+  return { record, changed };
+}
+
+function isSessionExpired(record) {
+  const expiresMs = sessionTimestamp(record?.expiresAt);
+  return expiresMs > 0 && expiresMs <= Date.now();
+}
+
+function pruneExpiredSessions(store) {
+  let changed = false;
+  store.tokens = store.tokens && typeof store.tokens === 'object' ? store.tokens : {};
+  store.sessions = Array.isArray(store.sessions) ? store.sessions : [];
+  for (const token of Object.keys(store.tokens)) {
+    const result = normalizeSessionToken(store, token);
+    changed = result.changed || changed;
+    if (!result.record || isSessionExpired(result.record)) {
+      changed = removeSession(store, token) || changed;
+      continue;
+    }
+    const hasUser = store.users.some(user => user.id === result.record.userId);
+    if (!hasUser) {
+      changed = removeSession(store, token) || changed;
+    }
+  }
+
+  const before = store.sessions.length;
+  store.sessions = store.sessions.filter(item => item?.token && store.tokens[item.token]);
+  return changed || store.sessions.length !== before;
+}
+
+function createSession(store, userId) {
+  const record = buildSessionRecord(userId);
+  store.tokens[record.token] = {
+    userId: record.userId,
+    createdAt: record.createdAt,
+    expiresAt: record.expiresAt
+  };
+  store.sessions = (Array.isArray(store.sessions) ? store.sessions : []).filter(item => item?.token !== record.token);
+  store.sessions.push(record);
+  return record;
+}
+
+function getCurrentSession(store, req) {
   const token = getToken(req);
-  const userId = token && store.tokens[token];
-  if (!userId) return null;
-  return store.users.find(user => user.id === userId) || null;
+  if (!token) return { user: null, token: '', expiresAt: null, changed: false, expired: false };
+  const result = normalizeSessionToken(store, token);
+  if (!result.record) {
+    return { user: null, token, expiresAt: null, changed: result.changed, expired: false };
+  }
+  if (isSessionExpired(result.record)) {
+    const changed = removeSession(store, token) || result.changed;
+    return { user: null, token, expiresAt: null, changed, expired: true };
+  }
+  const user = store.users.find(item => item.id === result.record.userId) || null;
+  if (!user) {
+    const changed = removeSession(store, token) || result.changed;
+    return { user: null, token, expiresAt: null, changed, expired: false };
+  }
+  return { user, token, expiresAt: result.record.expiresAt, changed: result.changed, expired: false };
 }
 
 function visibleListingFor(user, listing) {
@@ -1536,7 +1738,11 @@ async function readBody(req) {
 }
 
 async function handleApi(req, res, store, url) {
-  const user = getCurrentUser(store, req);
+  const session = getCurrentSession(store, req);
+  if (session.changed) {
+    await saveStore(store);
+  }
+  const user = session.user;
   const pathName = url.pathname;
 
   if (req.method === 'GET' && pathName === '/api/live-options') {
@@ -1609,7 +1815,11 @@ async function handleApi(req, res, store, url) {
   }
 
   if (req.method === 'GET' && pathName === '/api/session') {
-    return sendJson(res, 200, { user: publicUser(user) });
+    return sendJson(res, 200, {
+      user: publicUser(user),
+      expiresAt: user ? session.expiresAt : null,
+      tokenExpired: session.expired
+    });
   }
 
   if (req.method === 'POST' && pathName === '/api/session/register') {
@@ -1642,14 +1852,12 @@ async function handleApi(req, res, store, url) {
       role: 'member'
     };
     const passwordRecord = makePasswordRecord(password);
-    createdUser.passwordSalt = passwordRecord.salt;
-    createdUser.passwordHash = passwordRecord.hash;
+    applyPasswordRecord(createdUser, passwordRecord);
     store.users.push(createdUser);
 
-    const token = crypto.randomBytes(16).toString('hex');
-    store.tokens[token] = createdUser.id;
+    const sessionRecord = createSession(store, createdUser.id);
     await saveStore(store);
-    return sendJson(res, 201, { token, user: publicUser(createdUser) });
+    return sendJson(res, 201, { token: sessionRecord.token, expiresAt: sessionRecord.expiresAt, user: publicUser(createdUser) });
   }
 
   if (req.method === 'POST' && pathName === '/api/session/login') {
@@ -1663,20 +1871,21 @@ async function handleApi(req, res, store, url) {
     if (!existing) {
       return sendJson(res, 401, { error: 'invalid username or password' });
     }
-    const isValid = verifyPassword(password, existing.passwordSalt, existing.passwordHash);
-    if (!isValid) {
+    const verification = verifyPasswordRecord(password, existing);
+    if (!verification.valid) {
       return sendJson(res, 401, { error: 'invalid username or password' });
     }
-    const token = crypto.randomBytes(16).toString('hex');
-    store.tokens[token] = existing.id;
+    if (verification.needsUpgrade) {
+      applyPasswordRecord(existing, makePasswordRecord(password));
+    }
+    const sessionRecord = createSession(store, existing.id);
     await saveStore(store);
-    return sendJson(res, 200, { token, user: publicUser(existing) });
+    return sendJson(res, 200, { token: sessionRecord.token, expiresAt: sessionRecord.expiresAt, user: publicUser(existing) });
   }
 
   if (req.method === 'POST' && pathName === '/api/session/logout') {
     const token = getToken(req);
-    if (token && store.tokens[token]) {
-      delete store.tokens[token];
+    if (removeSession(store, token)) {
       await saveStore(store);
     }
     return sendJson(res, 200, { ok: true });
@@ -1709,14 +1918,13 @@ async function handleApi(req, res, store, url) {
     if (!targetUser) {
       return sendJson(res, 401, { error: 'login required' });
     }
-    const oldPasswordValid = verifyPassword(oldPassword, targetUser.passwordSalt, targetUser.passwordHash);
-    if (!oldPasswordValid) {
+    const oldPasswordVerification = verifyPasswordRecord(oldPassword, targetUser);
+    if (!oldPasswordVerification.valid) {
       return sendJson(res, 401, { error: 'invalid old password' });
     }
 
     const passwordRecord = makePasswordRecord(newPassword);
-    targetUser.passwordSalt = passwordRecord.salt;
-    targetUser.passwordHash = passwordRecord.hash;
+    applyPasswordRecord(targetUser, passwordRecord);
     await saveStore(store);
     return sendJson(res, 200, { ok: true });
   }

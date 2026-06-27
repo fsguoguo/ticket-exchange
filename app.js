@@ -2199,6 +2199,9 @@
     try {
       const sessionPayload = await apiFetch('/api/session');
       state.currentUser = sessionPayload.user || null;
+      if (!state.currentUser && localStorage.getItem(tokenKey)) {
+        localStorage.removeItem(tokenKey);
+      }
       // Render auth-related UI as soon as session is known to avoid login-state flicker.
       renderTopbar();
       renderSessionPanel();

@@ -12,13 +12,33 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+try:
+    import bcrypt as py_bcrypt
+except ImportError:
+    py_bcrypt = None
+
 
 ROOT = Path(__file__).resolve().parent
 configured_data_file = str(os.environ.get('DATA_FILE_PATH', '')).strip()
+
+
+def env_int(names: tuple[str, ...], default: int) -> int:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            try:
+                return int(value)
+            except ValueError:
+                continue
+    return default
+
+
 DATA_FILE = Path(configured_data_file).expanduser() if configured_data_file else ROOT / 'data.json'
 PORT = int(os.environ.get('PORT', '3000'))
 IS_PRODUCTION = os.environ.get('NODE_ENV', '').lower() == 'production'
 NOTIFICATION_DEDUP_WINDOW_MS = max(0, int(os.environ.get('NOTIFICATION_DEDUP_WINDOW_MS', '30000')))
+SESSION_TTL_MS = max(60000, env_int(('SESSION_TTL_MS', 'TOKEN_TTL_MS'), 1000 * 60 * 60 * 24 * 7))
+BCRYPT_ROUNDS = min(14, max(10, env_int(('BCRYPT_ROUNDS',), 12)))
 CONFIGURED_ALLOWED_ORIGINS = {
     item.strip()
     for item in os.environ.get('ALLOWED_ORIGINS', '').split(',')
@@ -56,15 +76,66 @@ DEFAULT_PASSWORDS = {
 }
 
 
-def make_password_record(password: str) -> tuple[str, str]:
+def make_sha256_password_record(password: str) -> dict:
     salt = secrets.token_hex(8)
     digest = hashlib.sha256(f'{salt}:{password}'.encode('utf-8')).hexdigest()
-    return salt, digest
+    return {'passwordAlgo': 'sha256', 'passwordSalt': salt, 'passwordHash': digest}
 
 
-def verify_password(password: str, salt: str, password_hash: str) -> bool:
+def make_password_record(password: str) -> dict:
+    if py_bcrypt:
+        digest = py_bcrypt.hashpw(password.encode('utf-8'), py_bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode('utf-8')
+        return {'passwordAlgo': 'bcrypt', 'passwordSalt': '', 'passwordHash': digest}
+    return make_sha256_password_record(password)
+
+
+def is_bcrypt_hash(value: str) -> bool:
+    return bool(re.match(r'^\$2[aby]\$\d{2}\$', str(value or '')))
+
+
+def password_algorithm(user: dict) -> str:
+    explicit = str(user.get('passwordAlgo') or '').strip().lower()
+    if explicit:
+        return explicit
+    return 'bcrypt' if is_bcrypt_hash(str(user.get('passwordHash') or '')) else 'sha256'
+
+
+def apply_password_record(user: dict, record: dict) -> None:
+    user['passwordAlgo'] = record.get('passwordAlgo', 'sha256')
+    user['passwordHash'] = record.get('passwordHash', '')
+    if record.get('passwordSalt'):
+        user['passwordSalt'] = record.get('passwordSalt')
+    else:
+        user.pop('passwordSalt', None)
+
+
+def verify_sha256_password(password: str, salt: str, password_hash: str) -> bool:
     digest = hashlib.sha256(f'{salt}:{password}'.encode('utf-8')).hexdigest()
     return hmac.compare_digest(digest, password_hash)
+
+
+def verify_password_record(password: str, user: dict) -> tuple[bool, bool]:
+    algo = password_algorithm(user)
+    if algo == 'bcrypt':
+        if not py_bcrypt:
+            return False, False
+        try:
+            return py_bcrypt.checkpw(password.encode('utf-8'), str(user.get('passwordHash') or '').encode('utf-8')), False
+        except ValueError:
+            return False, False
+
+    valid = verify_sha256_password(password, str(user.get('passwordSalt') or ''), str(user.get('passwordHash') or ''))
+    return valid, bool(valid and py_bcrypt)
+
+
+def public_user(user: dict | None) -> dict | None:
+    if not user:
+        return None
+    return {
+        'id': user.get('id'),
+        'name': str(user.get('name') or '')[:40],
+        'role': user.get('role'),
+    }
 
 
 def is_ascii_credential(value: str) -> bool:
@@ -311,11 +382,12 @@ def normalize_store(data: dict) -> dict:
                 data['nextUserId'] += 1
         if user.get('name') == 'admin':
             user['role'] = 'admin'
-        if not user.get('passwordSalt') or not user.get('passwordHash'):
+        algo = password_algorithm(user)
+        if not user.get('passwordHash') or (algo == 'sha256' and not user.get('passwordSalt')):
             default_password = DEFAULT_PASSWORDS.get(user.get('name'), '123456')
-            salt, digest = make_password_record(default_password)
-            user['passwordSalt'] = salt
-            user['passwordHash'] = digest
+            apply_password_record(user, make_password_record(default_password))
+        elif not user.get('passwordAlgo'):
+            user['passwordAlgo'] = algo
 
     for listing in data['listings']:
         owner_name = listing.get('ownerName')
@@ -343,13 +415,18 @@ def load_data() -> dict:
     if not DATA_FILE.exists():
         data = normalize_store(default_data())
         prune_expired_listings(data)
+        prune_expired_sessions(data)
         save_data(data)
         return data
     try:
         data = normalize_store(json.loads(DATA_FILE.read_text(encoding='utf-8')))
     except Exception:
         data = normalize_store(default_data())
-    if prune_expired_listings(data):
+    changed = any([
+        prune_expired_listings(data),
+        prune_expired_sessions(data),
+    ])
+    if changed:
         save_data(data)
     return data
 
@@ -370,15 +447,141 @@ def get_token(headers) -> str:
     return auth[7:].strip() if auth.startswith('Bearer ') else ''
 
 
-def current_user(data: dict, handler: BaseHTTPRequestHandler):
-    token = get_token(handler.headers)
-    user_id = data.get('tokens', {}).get(token)
+def session_timestamp(value) -> float:
+    text = str(value or '').strip()
+    if not text or text == 'now':
+        return 0
+    try:
+        return datetime.fromisoformat(text.replace('Z', '+00:00')).timestamp()
+    except ValueError:
+        return 0
+
+
+def iso_from_timestamp(seconds: float) -> str:
+    return datetime.fromtimestamp(seconds, timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+def build_session_record(user_id: str, token: str | None = None, now: float | None = None) -> dict:
+    now_seconds = now if now is not None else datetime.now(timezone.utc).timestamp()
+    return {
+        'token': token or secrets.token_hex(16),
+        'userId': user_id,
+        'createdAt': iso_from_timestamp(now_seconds),
+        'expiresAt': iso_from_timestamp(now_seconds + (SESSION_TTL_MS / 1000)),
+    }
+
+
+def remove_session(data: dict, token: str) -> bool:
+    if not token:
+        return False
+    changed = False
+    if token in data.get('tokens', {}):
+        del data['tokens'][token]
+        changed = True
+    before = len(data.get('sessions', []))
+    data['sessions'] = [session for session in data.get('sessions', []) if session.get('token') != token]
+    return changed or len(data['sessions']) != before
+
+
+def normalize_session_token(data: dict, token: str) -> tuple[dict | None, bool]:
+    tokens = data.setdefault('tokens', {})
+    sessions = data.setdefault('sessions', [])
+    token_value = tokens.get(token)
+    existing_session = next((item for item in sessions if item.get('token') == token), {})
+    changed = False
+    user_id = ''
+    created_at = ''
+    expires_at = ''
+
+    if isinstance(token_value, str):
+        user_id = token_value
+        changed = True
+    elif isinstance(token_value, dict):
+        user_id = token_value.get('userId') or ''
+        created_at = token_value.get('createdAt') or ''
+        expires_at = token_value.get('expiresAt') or ''
+
+    user_id = user_id or existing_session.get('userId') or ''
+    created_at = created_at or existing_session.get('createdAt') or ''
+    expires_at = expires_at or existing_session.get('expiresAt') or ''
     if not user_id:
-        return None
-    for user in data.get('users', []):
-        if user.get('id') == user_id:
-            return user
-    return None
+        return None, remove_session(data, token) or changed
+
+    now = datetime.now(timezone.utc).timestamp()
+    created_seconds = session_timestamp(created_at)
+    normalized_created_at = iso_from_timestamp(created_seconds if created_seconds > 0 else now)
+    expires_seconds = session_timestamp(expires_at)
+    normalized_expires_at = iso_from_timestamp(expires_seconds if expires_seconds > 0 else (created_seconds if created_seconds > 0 else now) + (SESSION_TTL_MS / 1000))
+    record = {'token': token, 'userId': user_id, 'createdAt': normalized_created_at, 'expiresAt': normalized_expires_at}
+
+    if not isinstance(token_value, dict) or token_value.get('userId') != record['userId'] or token_value.get('createdAt') != record['createdAt'] or token_value.get('expiresAt') != record['expiresAt']:
+        tokens[token] = {'userId': record['userId'], 'createdAt': record['createdAt'], 'expiresAt': record['expiresAt']}
+        changed = True
+
+    session_index = next((index for index, item in enumerate(sessions) if item.get('token') == token), -1)
+    if session_index >= 0:
+        current = sessions[session_index]
+        if current.get('userId') != record['userId'] or current.get('createdAt') != record['createdAt'] or current.get('expiresAt') != record['expiresAt']:
+            sessions[session_index] = record
+            changed = True
+    else:
+        sessions.append(record)
+        changed = True
+
+    return record, changed
+
+
+def is_session_expired(record: dict | None) -> bool:
+    expires_seconds = session_timestamp((record or {}).get('expiresAt'))
+    return bool(expires_seconds > 0 and expires_seconds <= datetime.now(timezone.utc).timestamp())
+
+
+def prune_expired_sessions(data: dict) -> bool:
+    changed = False
+    data.setdefault('tokens', {})
+    data.setdefault('sessions', [])
+    user_ids = {user.get('id') for user in data.get('users', [])}
+    for token in list(data.get('tokens', {}).keys()):
+        record, normalized = normalize_session_token(data, token)
+        changed = normalized or changed
+        if not record or is_session_expired(record) or record.get('userId') not in user_ids:
+            changed = remove_session(data, token) or changed
+    before = len(data.get('sessions', []))
+    data['sessions'] = [session for session in data.get('sessions', []) if session.get('token') in data.get('tokens', {})]
+    return changed or len(data['sessions']) != before
+
+
+def create_session(data: dict, user_id: str) -> dict:
+    record = build_session_record(user_id)
+    data.setdefault('tokens', {})[record['token']] = {
+        'userId': record['userId'],
+        'createdAt': record['createdAt'],
+        'expiresAt': record['expiresAt'],
+    }
+    data['sessions'] = [session for session in data.get('sessions', []) if session.get('token') != record['token']]
+    data.setdefault('sessions', []).append(record)
+    return record
+
+
+def current_session(data: dict, handler: BaseHTTPRequestHandler) -> dict:
+    token = get_token(handler.headers)
+    if not token:
+        return {'user': None, 'token': '', 'expiresAt': None, 'changed': False, 'expired': False}
+    record, changed = normalize_session_token(data, token)
+    if not record:
+        return {'user': None, 'token': token, 'expiresAt': None, 'changed': changed, 'expired': False}
+    if is_session_expired(record):
+        changed = remove_session(data, token) or changed
+        return {'user': None, 'token': token, 'expiresAt': None, 'changed': changed, 'expired': True}
+    user = next((item for item in data.get('users', []) if item.get('id') == record.get('userId')), None)
+    if not user:
+        changed = remove_session(data, token) or changed
+        return {'user': None, 'token': token, 'expiresAt': None, 'changed': changed, 'expired': False}
+    return {'user': user, 'token': token, 'expiresAt': record.get('expiresAt'), 'changed': changed, 'expired': False}
+
+
+def current_user(data: dict, handler: BaseHTTPRequestHandler):
+    return current_session(data, handler).get('user')
 
 
 def visible_to_user(user: dict | None, listing: dict) -> bool:
@@ -597,12 +800,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def route(self):
         data = load_data()
-        user = current_user(data, self)
+        session = current_session(data, self)
+        if session.get('changed'):
+            save_data(data)
+        user = session.get('user')
         url = urlparse(self.path)
         path = url.path
 
         if path == '/api/session' or path == '/api/bootstrap':
-            json_response(self, 200, {'user': user, 'currentUser': user})
+            json_response(self, 200, {'user': public_user(user), 'currentUser': public_user(user), 'expiresAt': session.get('expiresAt') if user else None, 'tokenExpired': bool(session.get('expired'))})
             return
 
         if path == '/api/session/login' and self.command == 'POST':
@@ -620,14 +826,15 @@ class Handler(BaseHTTPRequestHandler):
             if not existing:
                 json_response(self, 401, {'error': 'invalid credentials'})
                 return
-            if not verify_password(password, existing.get('passwordSalt', ''), existing.get('passwordHash', '')):
+            valid, needs_upgrade = verify_password_record(password, existing)
+            if not valid:
                 json_response(self, 401, {'error': 'invalid credentials'})
                 return
-            token = secrets.token_hex(16)
-            data.setdefault('tokens', {})[token] = existing['id']
-            data.setdefault('sessions', []).append({'token': token, 'userId': existing['id'], 'createdAt': 'now'})
+            if needs_upgrade:
+                apply_password_record(existing, make_password_record(password))
+            session_record = create_session(data, existing['id'])
             save_data(data)
-            json_response(self, 200, {'token': token, 'user': existing})
+            json_response(self, 200, {'token': session_record['token'], 'expiresAt': session_record['expiresAt'], 'user': public_user(existing)})
             return
 
         if path == '/api/session/register' and self.command == 'POST':
@@ -650,34 +857,28 @@ class Handler(BaseHTTPRequestHandler):
             if next((item for item in data['users'] if item['name'] == username), None):
                 json_response(self, 409, {'error': 'username already exists'})
                 return
-            salt, digest = make_password_record(password)
             user = {
                 'id': f'u{data.get("nextUserId", 4)}',
                 'name': username,
                 'role': 'member',
-                'passwordSalt': salt,
-                'passwordHash': digest
             }
+            apply_password_record(user, make_password_record(password))
             data['nextUserId'] = int(data.get('nextUserId', 4)) + 1
             data['users'].append(user)
-            token = secrets.token_hex(16)
-            data.setdefault('tokens', {})[token] = user['id']
-            data.setdefault('sessions', []).append({'token': token, 'userId': user['id'], 'createdAt': 'now'})
+            session_record = create_session(data, user['id'])
             save_data(data)
-            json_response(self, 201, {'token': token, 'user': user})
+            json_response(self, 201, {'token': session_record['token'], 'expiresAt': session_record['expiresAt'], 'user': public_user(user)})
             return
 
         if path == '/api/session/logout' and self.command == 'POST':
             token = get_token(self.headers)
-            if token and token in data.get('tokens', {}):
-                del data['tokens'][token]
-                data['sessions'] = [session for session in data.get('sessions', []) if session.get('token') != token]
+            if remove_session(data, token):
                 save_data(data)
             json_response(self, 200, {'ok': True})
             return
 
         if path == '/api/me' or path == '/api/session/me':
-            json_response(self, 200, {'user': user})
+            json_response(self, 200, {'user': public_user(user)})
             return
 
         if path == '/api/listings' and self.command == 'GET':
