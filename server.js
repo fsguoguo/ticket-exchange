@@ -48,6 +48,26 @@ const LIVE_FETCH_TIMEOUT_MS = Number(process.env.LIVE_FETCH_TIMEOUT_MS || 12000)
 const LIVE_MAX_PAGES_PER_SOURCE = Number(process.env.LIVE_MAX_PAGES_PER_SOURCE || 16);
 const LIVE_MAX_LOVELIVE_DETAIL_FETCH = Number(process.env.LIVE_MAX_LOVELIVE_DETAIL_FETCH || 24);
 
+const FRANCHISE_LABELS = {
+  bangdream: 'Bang Dream',
+  lovelive: 'LoveLive',
+  imas: 'IM@S',
+  other: '其他'
+};
+
+const KIND_LABELS = {
+  transfer: '出票',
+  seeking: '收票',
+  swap: '换票'
+};
+
+const ACCENT_BY_FRANCHISE = {
+  bangdream: '#ff6aa2',
+  lovelive: '#6de2ff',
+  imas: '#ff8f70',
+  other: '#8bd3ff'
+};
+
 const LIVE_SOURCES = [
   {
     franchise: 'bangdream',
@@ -462,8 +482,88 @@ function normalizeSpace(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeText(value, options = {}) {
+  const maxLength = Number.isFinite(Number(options.maxLength)) ? Number(options.maxLength) : 200;
+  const preserveNewlines = options.preserveNewlines === true;
+  let text = String(value || '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+  text = text.replace(/\r\n?/g, '\n').trim();
+  if (!preserveNewlines) {
+    text = normalizeSpace(text);
+  }
+  if (!text) return '';
+  if (text.length > maxLength) {
+    text = text.slice(0, maxLength);
+  }
+  return escapeHtml(text);
+}
+
+function normalizeFranchise(value) {
+  const key = normalizeSpace(value).toLowerCase();
+  return FRANCHISE_LABELS[key] ? key : 'other';
+}
+
+function normalizeKind(value) {
+  const key = normalizeSpace(value).toLowerCase();
+  return KIND_LABELS[key] ? key : 'transfer';
+}
+
+function normalizeAccent(accent, franchise) {
+  const normalized = normalizeSpace(accent);
+  if (/^#[0-9a-f]{6}$/i.test(normalized) || /^#[0-9a-f]{3}$/i.test(normalized)) {
+    return normalized;
+  }
+  return ACCENT_BY_FRANCHISE[franchise] || ACCENT_BY_FRANCHISE.other;
+}
+
+function sanitizeTags(tags) {
+  return [...new Set((Array.isArray(tags) ? tags : [])
+    .map(item => sanitizeText(item, { maxLength: 24 }))
+    .filter(Boolean))]
+    .slice(0, 8);
+}
+
+function sanitizeComment(comment) {
+  return {
+    ...comment,
+    text: sanitizeText(comment?.text, { maxLength: 300, preserveNewlines: true }),
+    authorName: sanitizeText(comment?.authorName, { maxLength: 40 }) || '匿名用户'
+  };
+}
+
+function sanitizeListingForResponse(listing) {
+  const comments = Array.isArray(listing?.comments) ? listing.comments.map(sanitizeComment) : [];
+  return {
+    ...listing,
+    title: sanitizeText(listing?.title, { maxLength: 80 }),
+    subtitle: sanitizeText(listing?.subtitle, { maxLength: 120 }),
+    city: sanitizeText(listing?.city, { maxLength: 40 }),
+    venue: sanitizeText(listing?.venue, { maxLength: 120 }),
+    price: sanitizeText(listing?.price, { maxLength: 80 }),
+    contact: sanitizeText(listing?.contact, { maxLength: 120 }),
+    note: sanitizeText(listing?.note, { maxLength: 500, preserveNewlines: true }),
+    franchiseLabel: sanitizeText(listing?.franchiseLabel, { maxLength: 24 }),
+    kindLabel: sanitizeText(listing?.kindLabel, { maxLength: 24 }),
+    ownerName: sanitizeText(listing?.ownerName, { maxLength: 40 }) || '匿名发布',
+    tags: sanitizeTags(listing?.tags),
+    comments
+  };
+}
+
 function isAsciiCredential(value) {
   return /^[\x21-\x7E]+$/.test(String(value || ''));
+}
+
+function isSafeUsername(value) {
+  return /^[A-Za-z0-9_-]{3,32}$/.test(String(value || ''));
 }
 
 function makePasswordRecord(password) {
@@ -486,7 +586,7 @@ function publicUser(user) {
   if (!user) return null;
   return {
     id: user.id,
-    name: user.name,
+    name: sanitizeText(user.name, { maxLength: 40 }),
     role: user.role
   };
 }
@@ -1254,11 +1354,12 @@ function visibleNotificationsFor(user, notifications) {
 }
 
 function enrichListing(listing, user) {
+  const safeListing = sanitizeListingForResponse(listing);
   const favoriteCount = listing.favoritesBy ? listing.favoritesBy.length : 0;
   const favorited = !!(user && listing.favoritesBy && listing.favoritesBy.includes(user.id));
-  const comments = Array.isArray(listing.comments) ? listing.comments : [];
+  const comments = Array.isArray(safeListing.comments) ? safeListing.comments : [];
   return {
-    ...listing,
+    ...safeListing,
     favoriteCount,
     favorited,
     visibleToMe: visibleListingFor(user, listing),
@@ -1276,7 +1377,8 @@ function addNotification(store, payload) {
   store.notifications.unshift({
     id: store.nextNotificationId++,
     at: new Date().toISOString(),
-    ...payload
+    ...payload,
+    text: sanitizeText(payload?.text, { maxLength: 300, preserveNewlines: true })
   });
   store.notifications = store.notifications.slice(0, 50);
 }
@@ -1377,8 +1479,11 @@ async function handleApi(req, res, store, url) {
     if (!username || !password) {
       return sendJson(res, 400, { error: 'username and password are required' });
     }
-    if (!isAsciiCredential(username) || !isAsciiCredential(password)) {
-      return sendJson(res, 400, { error: 'username and password can only contain english letters, numbers, and symbols' });
+    if (!isSafeUsername(username)) {
+      return sendJson(res, 400, { error: 'username must be 3-32 chars and only contain letters, numbers, _ or -' });
+    }
+    if (!isAsciiCredential(password)) {
+      return sendJson(res, 400, { error: 'password can only contain english letters, numbers, and symbols' });
     }
     if (password.length < 6) {
       return sendJson(res, 400, { error: 'password must be at least 6 characters' });
@@ -1481,7 +1586,12 @@ async function handleApi(req, res, store, url) {
   }
 
   if (req.method === 'GET' && pathName === '/api/notifications') {
-    const notifications = visibleNotificationsFor(user, store.notifications).slice(0, 12);
+    const notifications = visibleNotificationsFor(user, store.notifications)
+      .slice(0, 12)
+      .map(item => ({
+        ...item,
+        text: sanitizeText(item?.text, { maxLength: 300, preserveNewlines: true })
+      }));
     return sendJson(res, 200, { notifications });
   }
 
@@ -1491,16 +1601,13 @@ async function handleApi(req, res, store, url) {
     }
     const body = parseJson(await readBody(req));
     if (!body) return sendJson(res, 400, { error: 'invalid json' });
-    const text = String(body.text || '').trim();
+    const text = sanitizeText(body.text, { maxLength: 300, preserveNewlines: true });
     if (!text) return sendJson(res, 400, { error: 'text required' });
-    if (text.length > 300) return sendJson(res, 400, { error: 'text too long' });
 
-    store.notifications.unshift({
-      id: store.nextNotificationId++,
+    addNotification(store, {
       audience: 'admin',
       createdByRole: user.role || 'member',
-      text: `用户反馈（${user.name}）：${text}`,
-      at: new Date().toISOString(),
+      text: `用户反馈（${sanitizeText(user.name, { maxLength: 40 }) || '匿名用户'}）：${text}`,
       type: 'feedback'
     });
     await saveStore(store);
@@ -1513,7 +1620,7 @@ async function handleApi(req, res, store, url) {
     }
     const body = parseJson(await readBody(req));
     if (!body) return sendJson(res, 400, { error: 'invalid json' });
-    const text = String(body.text || '').trim();
+    const text = sanitizeText(body.text, { maxLength: 300, preserveNewlines: true });
     if (!text) return sendJson(res, 400, { error: 'text required' });
     const notification = {
       id: store.nextNotificationId++,
@@ -1560,7 +1667,7 @@ async function handleApi(req, res, store, url) {
     if (!listing || !visibleListingFor(user, listing)) {
       return sendJson(res, 404, { error: 'not found' });
     }
-    const comments = Array.isArray(listing.comments) ? listing.comments : [];
+    const comments = Array.isArray(listing.comments) ? listing.comments.map(sanitizeComment) : [];
     return sendJson(res, 200, { comments });
   }
 
@@ -1573,26 +1680,40 @@ async function handleApi(req, res, store, url) {
       return sendJson(res, 400, { error: 'listing date cannot be before today' });
     }
 
+    const franchise = normalizeFranchise(body.franchise);
+    const kind = normalizeKind(body.kind);
+    const title = sanitizeText(body.title, { maxLength: 80 });
+    const subtitle = sanitizeText(body.subtitle, { maxLength: 120 });
+    const city = sanitizeText(body.city, { maxLength: 40 });
+    const venue = sanitizeText(body.venue, { maxLength: 120 });
+    const price = sanitizeText(body.price, { maxLength: 80 });
+    const contact = sanitizeText(body.contact || '站内发布 / 待补充', { maxLength: 120 });
+    const note = sanitizeText(body.note, { maxLength: 500, preserveNewlines: true });
+    const tags = sanitizeTags(body.tags);
+    if (!title || !venue || !price || !contact) {
+      return sendJson(res, 400, { error: 'title, venue, price and contact are required' });
+    }
+
     const listing = {
       id: store.nextListingId++,
-      franchise: body.franchise,
-      franchiseLabel: body.franchiseLabel,
-      kind: body.kind,
-      kindLabel: body.kindLabel,
-      title: body.title,
-      subtitle: body.subtitle,
-      city: body.city,
-      venue: body.venue,
+      franchise,
+      franchiseLabel: FRANCHISE_LABELS[franchise],
+      kind,
+      kindLabel: KIND_LABELS[kind],
+      title,
+      subtitle,
+      city,
+      venue,
       date: body.date,
       eventDates,
-      price: body.price,
-      contact: body.contact || '站内发布 / 待补充',
-      note: body.note,
-      tags: Array.isArray(body.tags) ? body.tags : [],
+      price,
+      contact,
+      note,
+      tags,
       quantity: Number(body.quantity || 1) || 1,
       canSerial: !!body.canSerial,
       isPremium: !!body.isPremium,
-      accent: body.accent,
+      accent: normalizeAccent(body.accent, franchise),
       ownerId: user.id,
       ownerName: user.name,
       status: 'approved',
@@ -1629,24 +1750,37 @@ async function handleApi(req, res, store, url) {
       return sendJson(res, 400, { error: 'listing date cannot be before today' });
     }
 
-    listing.franchise = body.franchise;
-    listing.franchiseLabel = body.franchiseLabel;
-    listing.kind = body.kind;
-    listing.kindLabel = body.kindLabel;
-    listing.title = body.title;
-    listing.subtitle = body.subtitle;
-    listing.city = body.city;
-    listing.venue = body.venue;
+    const franchise = normalizeFranchise(body.franchise);
+    const kind = normalizeKind(body.kind);
+    const title = sanitizeText(body.title, { maxLength: 80 });
+    const subtitle = sanitizeText(body.subtitle, { maxLength: 120 });
+    const city = sanitizeText(body.city, { maxLength: 40 });
+    const venue = sanitizeText(body.venue, { maxLength: 120 });
+    const price = sanitizeText(body.price, { maxLength: 80 });
+    const contact = sanitizeText(body.contact || listing.contact, { maxLength: 120 });
+    const note = sanitizeText(body.note, { maxLength: 500, preserveNewlines: true });
+    if (!title || !venue || !price || !contact) {
+      return sendJson(res, 400, { error: 'title, venue, price and contact are required' });
+    }
+
+    listing.franchise = franchise;
+    listing.franchiseLabel = FRANCHISE_LABELS[franchise];
+    listing.kind = kind;
+    listing.kindLabel = KIND_LABELS[kind];
+    listing.title = title;
+    listing.subtitle = subtitle;
+    listing.city = city;
+    listing.venue = venue;
     listing.date = body.date;
     listing.eventDates = eventDates;
-    listing.price = body.price;
-    listing.contact = body.contact || listing.contact;
-    listing.note = body.note;
-    listing.tags = Array.isArray(body.tags) ? body.tags : listing.tags;
+    listing.price = price;
+    listing.contact = contact;
+    listing.note = note;
+    listing.tags = sanitizeTags(Array.isArray(body.tags) ? body.tags : listing.tags);
     listing.quantity = Number(body.quantity || listing.quantity || 1) || 1;
     listing.canSerial = !!body.canSerial;
     listing.isPremium = !!body.isPremium;
-    listing.accent = body.accent || listing.accent;
+    listing.accent = normalizeAccent(body.accent || listing.accent, franchise);
     listing.status = 'approved';
     listing.reviewLog = listing.reviewLog || [];
     listing.updatedAt = new Date().toISOString();
@@ -1671,7 +1805,7 @@ async function handleApi(req, res, store, url) {
     if (!listing || !visibleListingFor(user, listing)) return sendJson(res, 404, { error: 'not found' });
     const body = parseJson(await readBody(req));
     if (!body) return sendJson(res, 400, { error: 'invalid json' });
-    const text = String(body.text || body.comment || '').trim();
+    const text = sanitizeText(body.text || body.comment, { maxLength: 300, preserveNewlines: true });
     if (!text) return sendJson(res, 400, { error: 'comment is required' });
     listing.comments = Array.isArray(listing.comments) ? listing.comments : [];
     const comment = {
@@ -1679,7 +1813,7 @@ async function handleApi(req, res, store, url) {
       listingId: id,
       text,
       authorId: user.id,
-      authorName: user.name,
+      authorName: sanitizeText(user.name, { maxLength: 40 }) || '匿名用户',
       authorRole: user.role,
       createdAt: new Date().toISOString()
     };
@@ -1696,7 +1830,7 @@ async function handleApi(req, res, store, url) {
       });
     }
     await saveStore(store);
-    return sendJson(res, 200, { comment });
+    return sendJson(res, 200, { comment: sanitizeComment(comment) });
   }
 
   if (req.method === 'DELETE' && pathName.startsWith('/api/listings/') && pathName.includes('/comments/')) {

@@ -582,6 +582,15 @@
     };
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function getOwnerName(listing) {
     if (listing.ownerName && listing.ownerName !== '匿名发布') return listing.ownerName;
     return listing.owner || listing.ownerName || '匿名发布';
@@ -1082,7 +1091,7 @@
         };
       });
     } catch (error) {
-      list.innerHTML = `<div class="comment-empty">${error.message || '评论加载失败'}</div>`;
+      list.innerHTML = `<div class="comment-empty">${escapeHtml(error.message || '评论加载失败')}</div>`;
     }
   }
 
@@ -1399,7 +1408,7 @@
     if (!state.currentUser) {
       refs.userChip.innerHTML = '<strong>未登录</strong>';
     } else {
-      refs.userChip.innerHTML = `<strong>${state.currentUser.name}</strong><span>${state.currentUser.role === 'admin' ? '已登录' : '已登录'}</span>`;
+      refs.userChip.innerHTML = `<strong>${escapeHtml(state.currentUser.name)}</strong><span>${state.currentUser.role === 'admin' ? '已登录' : '已登录'}</span>`;
     }
     if (refs.adminBroadcastButton) {
       if (!isAdmin) {
