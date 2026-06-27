@@ -2157,27 +2157,53 @@
     const startIndex = (state.adminLivePage - 1) * adminLivePageSize;
     const pageItems = sorted.slice(startIndex, startIndex + adminLivePageSize);
 
-    refs.adminLiveList.innerHTML = pageItems.map(item => {
-      const fl = item.franchiseLabel || franchiseLabelsMap[item.franchise] || item.franchise;
+    refs.adminLiveList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+    pageItems.forEach(item => {
+      const fl = item.franchiseLabel || franchiseLabelsMap[item.franchise] || item.franchise || '';
       const isManual = item.source === 'manual';
-      return `<div class="review-item">
-        <div class="review-item-head">
-          <p class="review-item-title">${item.title}</p>
-          <span class="tiny-pill">${isManual ? '手动' : '自动'}</span>
-        </div>
-        <p class="muted" style="margin:4px 0 8px;font-size:0.84rem">${fl} · ${item.venue} · ${item.date}</p>
-        <div class="review-actions">
-          <button class="card-btn secondary" type="button" data-live-edit="${encodeURIComponent(item.id)}">编辑</button>
-          <button class="card-btn danger" type="button" data-live-delete="${encodeURIComponent(item.id)}">删除</button>
-        </div>
-      </div>`;
-    }).join('');
-    refs.adminLiveList.querySelectorAll('[data-live-edit]').forEach(btn => {
-      btn.addEventListener('click', () => fillAdminLiveFormForEdit(decodeURIComponent(btn.getAttribute('data-live-edit'))));
+      const row = document.createElement('div');
+      row.className = 'review-item';
+
+      const head = document.createElement('div');
+      head.className = 'review-item-head';
+
+      const title = document.createElement('p');
+      title.className = 'review-item-title';
+      title.textContent = item.title || '';
+
+      const source = document.createElement('span');
+      source.className = 'tiny-pill';
+      source.textContent = isManual ? '手动' : '自动';
+
+      head.append(title, source);
+
+      const meta = document.createElement('p');
+      meta.className = 'muted';
+      meta.style.margin = '4px 0 8px';
+      meta.style.fontSize = '0.84rem';
+      meta.textContent = `${fl} / ${item.venue || ''} / ${item.date || ''}`;
+
+      const actions = document.createElement('div');
+      actions.className = 'review-actions';
+
+      const editButton = document.createElement('button');
+      editButton.className = 'card-btn secondary';
+      editButton.type = 'button';
+      editButton.textContent = '编辑';
+      editButton.addEventListener('click', () => fillAdminLiveFormForEdit(item.id));
+
+      const deleteButton = document.createElement('button');
+      deleteButton.className = 'card-btn danger';
+      deleteButton.type = 'button';
+      deleteButton.textContent = '删除';
+      deleteButton.addEventListener('click', () => deleteManualLiveOption(item.id));
+
+      actions.append(editButton, deleteButton);
+      row.append(head, meta, actions);
+      fragment.appendChild(row);
     });
-    refs.adminLiveList.querySelectorAll('[data-live-delete]').forEach(btn => {
-      btn.addEventListener('click', () => deleteManualLiveOption(decodeURIComponent(btn.getAttribute('data-live-delete'))));
-    });
+    refs.adminLiveList.appendChild(fragment);
 
     if (!refs.adminLivePager) return;
     if (totalPages <= 1) {

@@ -10,13 +10,39 @@ import mimetypes
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 
 ROOT = Path(__file__).resolve().parent
 configured_data_file = str(os.environ.get('DATA_FILE_PATH', '')).strip()
 DATA_FILE = Path(configured_data_file).expanduser() if configured_data_file else ROOT / 'data.json'
 PORT = int(os.environ.get('PORT', '3000'))
+IS_PRODUCTION = os.environ.get('NODE_ENV', '').lower() == 'production'
+CONFIGURED_ALLOWED_ORIGINS = {
+    item.strip()
+    for item in os.environ.get('ALLOWED_ORIGINS', '').split(',')
+    if item.strip()
+}
+DEFAULT_ALLOWED_ORIGINS = {'https://ticket-exchange.onrender.com'}
+PUBLIC_STATIC_FILES = {'index.html', 'register.html', 'app.js', 'config.js'}
+
+SECURITY_HEADERS = {
+    'Content-Security-Policy': (
+        "default-src 'self'; base-uri 'self'; object-src 'none'; "
+        "frame-ancestors 'none'; img-src 'self' data: https:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self' https://ticket-exchange.onrender.com "
+        "http://localhost:3000 http://127.0.0.1:3000; form-action 'self'"
+    ),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+}
+
+if IS_PRODUCTION:
+    SECURITY_HEADERS['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
 
 
 DEFAULT_PASSWORDS = {
@@ -382,14 +408,63 @@ def enrich_listing(listing: dict, user: dict | None) -> dict:
     }
 
 
+def normalize_origin(origin: str) -> str:
+    parsed = urlparse(origin)
+    if not parsed.scheme or not parsed.netloc:
+        return ''
+    return f'{parsed.scheme}://{parsed.netloc}'
+
+
+def is_allowed_cors_origin(origin: str) -> bool:
+    if origin == 'null':
+        return not IS_PRODUCTION
+    normalized = normalize_origin(origin)
+    if not normalized:
+        return False
+    if normalized in CONFIGURED_ALLOWED_ORIGINS or normalized in DEFAULT_ALLOWED_ORIGINS:
+        return True
+    return not IS_PRODUCTION and re.match(r'^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?$', normalized, re.I)
+
+
+def cors_headers(handler: BaseHTTPRequestHandler) -> dict[str, str]:
+    origin = handler.headers.get('Origin', '').strip()
+    if not origin:
+        return {}
+    if not is_allowed_cors_origin(origin):
+        return {'Vary': 'Origin'}
+    return {
+        'Access-Control-Allow-Origin': 'null' if origin == 'null' else normalize_origin(origin),
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Vary': 'Origin'
+    }
+
+
+def send_headers(handler: BaseHTTPRequestHandler, headers: dict[str, str]):
+    merged = {**SECURITY_HEADERS, **headers}
+    for key, value in merged.items():
+        handler.send_header(key, value)
+
+
+def resolve_static_path(request_path: str) -> Path | None:
+    decoded = unquote(request_path or '/').replace('\\', '/')
+    if decoded in ('', '/', '/票务互助.html', '/绁ㄥ姟浜掑姪.html'):
+        file_name = 'index.html'
+    else:
+        file_name = decoded.lstrip('/')
+    if '/' in file_name or '\x00' in file_name or file_name not in PUBLIC_STATIC_FILES:
+        return None
+    return (ROOT / file_name).resolve()
+
+
 def json_response(handler: BaseHTTPRequestHandler, code: int, payload: dict):
     raw = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     handler.send_response(code)
-    handler.send_header('Content-Type', 'application/json; charset=utf-8')
-    handler.send_header('Access-Control-Allow-Origin', '*')
-    handler.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    handler.send_header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-    handler.send_header('Content-Length', str(len(raw)))
+    send_headers(handler, {
+        **cors_headers(handler),
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': str(len(raw))
+    })
     handler.end_headers()
     handler.wfile.write(raw)
 
@@ -403,15 +478,22 @@ def read_json_body(handler: BaseHTTPRequestHandler) -> dict:
 
 
 def static_response(handler: BaseHTTPRequestHandler, file_path: Path):
-    if not file_path.exists() or not file_path.is_file():
+    try:
+        file_path.relative_to(ROOT)
+    except ValueError:
+        json_response(handler, 403, {'error': 'forbidden'})
+        return
+    if file_path.name not in PUBLIC_STATIC_FILES or not file_path.exists() or not file_path.is_file():
         json_response(handler, 404, {'error': 'not found'})
         return
     content = file_path.read_bytes()
     mime = mimetypes.guess_type(str(file_path))[0] or 'application/octet-stream'
     handler.send_response(200)
-    handler.send_header('Content-Type', mime)
-    handler.send_header('Content-Length', str(len(content)))
-    handler.send_header('Access-Control-Allow-Origin', '*')
+    send_headers(handler, {
+        **cors_headers(handler),
+        'Content-Type': mime,
+        'Content-Length': str(len(content))
+    })
     handler.end_headers()
     handler.wfile.write(content)
 
@@ -423,10 +505,10 @@ class Handler(BaseHTTPRequestHandler):
         return
 
     def do_OPTIONS(self):
-        self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.send_header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        headers = cors_headers(self)
+        allowed = not self.headers.get('Origin') or 'Access-Control-Allow-Origin' in headers
+        self.send_response(204 if allowed else 403)
+        send_headers(self, {**headers, 'Content-Length': '0'})
         self.end_headers()
 
     def do_GET(self):
@@ -913,10 +995,12 @@ class Handler(BaseHTTPRequestHandler):
             json_response(self, 200, {'review': review})
             return
 
-        static_path = path.lstrip('/') or 'index.html'
-        if static_path == '票务互助.html':
-            static_path = 'index.html'
-        static_response(self, ROOT / static_path)
+        file_path = resolve_static_path(path)
+        if not file_path:
+            json_response(self, 404, {'error': 'not found'})
+            return
+        static_response(self, file_path)
+        return
 
 
 def main():

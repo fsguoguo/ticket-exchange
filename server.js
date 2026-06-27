@@ -24,6 +24,13 @@ const pool = databaseUrl
     })
   : null;
 const port = Number(process.env.PORT || 3000);
+const isProduction = String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+const configuredAllowedOrigins = String(process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(item => item.trim())
+  .filter(Boolean);
+const defaultAllowedOrigins = ['https://ticket-exchange.onrender.com'];
+const localOriginPattern = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i;
 let databaseReady = null;
 
 if (!pool && !allowLocalStore) {
@@ -42,6 +49,43 @@ const mimeTypes = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon'
 };
+
+const publicStaticFiles = new Set([
+  'index.html',
+  'register.html',
+  'app.js',
+  'config.js'
+]);
+
+const cspConnectSources = [...new Set([
+  "'self'",
+  ...defaultAllowedOrigins,
+  ...configuredAllowedOrigins,
+  ...(isProduction ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000'])
+])].join(' ');
+
+const securityHeaders = {
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "img-src 'self' data: https:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline'",
+    `connect-src ${cspConnectSources}`,
+    "form-action 'self'"
+  ].join('; '),
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Cross-Origin-Opener-Policy': 'same-origin'
+};
+
+if (isProduction) {
+  securityHeaders['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+}
 
 const LIVE_REFRESH_INTERVAL_MS = Number(process.env.LIVE_REFRESH_INTERVAL_MS || 1000 * 60 * 60 * 6);
 const LIVE_FETCH_TIMEOUT_MS = Number(process.env.LIVE_FETCH_TIMEOUT_MS || 12000);
@@ -1305,22 +1349,59 @@ function parseJson(body) {
   }
 }
 
-function sendJson(res, statusCode, payload, extraHeaders = {}) {
-  res.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
+function normalizeOrigin(origin) {
+  try {
+    return new URL(origin).origin;
+  } catch (error) {
+    return '';
+  }
+}
+
+function isAllowedCorsOrigin(origin) {
+  if (origin === 'null') {
+    return !isProduction;
+  }
+  const normalized = normalizeOrigin(origin);
+  if (!normalized) return false;
+  if (configuredAllowedOrigins.includes(normalized)) return true;
+  if (defaultAllowedOrigins.includes(normalized)) return true;
+  return !isProduction && localOriginPattern.test(normalized);
+}
+
+function buildCorsHeaders(req) {
+  const origin = String(req.headers.origin || '').trim();
+  if (!origin) return {};
+  if (!isAllowedCorsOrigin(origin)) {
+    return { Vary: 'Origin' };
+  }
+  return {
+    'Access-Control-Allow-Origin': origin === 'null' ? 'null' : normalizeOrigin(origin),
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    Vary: 'Origin'
+  };
+}
+
+function responseHeaders(res, headers = {}, includeCors = false) {
+  return {
+    ...securityHeaders,
+    ...(includeCors ? (res.__corsHeaders || {}) : {}),
+    ...headers
+  };
+}
+
+function sendJson(res, statusCode, payload, extraHeaders = {}) {
+  res.writeHead(statusCode, responseHeaders(res, {
+    'Content-Type': 'application/json; charset=utf-8',
     ...extraHeaders
-  });
+  }, true));
   res.end(JSON.stringify(payload));
 }
 
 function sendText(res, statusCode, content, contentType = 'text/plain; charset=utf-8') {
-  res.writeHead(statusCode, {
-    'Content-Type': contentType,
-    'Access-Control-Allow-Origin': '*'
-  });
+  res.writeHead(statusCode, responseHeaders(res, {
+    'Content-Type': contentType
+  }, true));
   res.end(content);
 }
 
@@ -1921,25 +2002,46 @@ async function handleApi(req, res, store, url) {
   return sendJson(res, 404, { error: 'not found' });
 }
 
+function resolvePublicStaticFile(pathname) {
+  let decodedPathname = String(pathname || '/');
+  try {
+    decodedPathname = decodeURIComponent(decodedPathname);
+  } catch (error) {
+    return '';
+  }
+  decodedPathname = decodedPathname.replace(/\\/g, '/');
+  if (decodedPathname === '/' || decodedPathname === '') {
+    return 'index.html';
+  }
+  if (decodedPathname === '/票务互助.html' || decodedPathname === '/绁ㄥ姟浜掑姪.html') {
+    return 'index.html';
+  }
+  const fileName = decodedPathname.replace(/^\/+/, '');
+  if (fileName.includes('/') || fileName.includes('\0')) {
+    return '';
+  }
+  return publicStaticFiles.has(fileName) ? fileName : '';
+}
+
 async function serveStatic(req, res, url) {
-  const pathname = url.pathname === '/' ? '/index.html' : url.pathname;
-  const safePath = path.normalize(path.join(rootDir, pathname.replace(/^\//, '')));
-  if (!safePath.startsWith(rootDir)) {
+  const fileName = resolvePublicStaticFile(url.pathname);
+  if (!fileName) {
+    return sendText(res, 404, 'Not Found');
+  }
+  const rootPath = path.resolve(rootDir);
+  const safePath = path.resolve(rootPath, fileName);
+  if (safePath !== rootPath && !safePath.startsWith(`${rootPath}${path.sep}`)) {
     return sendText(res, 403, 'Forbidden');
   }
   try {
     const data = await fsp.readFile(safePath);
     const ext = path.extname(safePath).toLowerCase();
-    res.writeHead(200, {
-      'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-      'Access-Control-Allow-Origin': '*'
-    });
+    res.writeHead(200, responseHeaders(res, {
+      'Content-Type': mimeTypes[ext] || 'application/octet-stream'
+    }, true));
     res.end(data);
   } catch (error) {
-    if (pathname === '/票务互助.html') {
-      return serveStatic(req, res, new URL('/index.html', 'http://localhost'));
-    }
-    sendText(res, 404, 'Not Found');
+    return sendText(res, 404, 'Not Found');
   }
 }
 
@@ -1968,13 +2070,13 @@ async function main() {
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || `localhost:${port}`}`);
+    res.__corsHeaders = buildCorsHeaders(req);
 
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
-      });
+      const allowed = !req.headers.origin || !!res.__corsHeaders['Access-Control-Allow-Origin'];
+      res.writeHead(allowed ? 204 : 403, responseHeaders(res, {
+        'Content-Length': '0'
+      }, true));
       return res.end();
     }
 
