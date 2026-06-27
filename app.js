@@ -67,6 +67,10 @@
     notificationPage: 1,
     adminLivePage: 1,
     loading: true,
+    submittingListing: false,
+    sendingBroadcast: false,
+    submittingFeedback: false,
+    submittingComments: new Set(),
     liveOptionsByFranchise: {
       bangdream: [],
       lovelive: [],
@@ -1254,6 +1258,7 @@
     if (!form || !message) return;
     form.onsubmit = async event => {
       event.preventDefault();
+      if (state.submittingComments.has(listingId)) return;
       const text = String(new FormData(form).get('text') || '').trim();
       if (!text) {
         message.hidden = false;
@@ -1261,6 +1266,9 @@
         message.className = 'comment-message is-error';
         return;
       }
+      const submitButton = form.querySelector('button[type="submit"]');
+      state.submittingComments.add(listingId);
+      if (submitButton) submitButton.disabled = true;
       try {
         message.hidden = false;
         message.textContent = '发送中…';
@@ -1275,6 +1283,9 @@
         message.hidden = false;
         message.textContent = error.message || '评论发送失败';
         message.className = 'comment-message is-error';
+      } finally {
+        state.submittingComments.delete(listingId);
+        if (submitButton) submitButton.disabled = false;
       }
     };
   }
@@ -2606,14 +2617,18 @@
 
   async function sendBroadcastNotification() {
     if (!state.currentUser || state.currentUser.role !== 'admin') return;
+    if (state.sendingBroadcast) return;
     const panel = document.getElementById('adminBroadcastPanel');
     const textField = document.getElementById('adminBroadcastText');
+    const submitButton = refs.adminBroadcastForm?.querySelector('button[type="submit"]');
     const text = String(textField?.value || '').trim();
     if (!text) {
       setSessionMessage('请输入通知内容。', 'is-error');
       textField?.focus();
       return;
     }
+    state.sendingBroadcast = true;
+    if (submitButton) submitButton.disabled = true;
     try {
       await apiFetch('/api/notifications', {
         method: 'POST',
@@ -2625,10 +2640,14 @@
       setSessionMessage('全体通知已发送。', 'is-success');
     } catch (error) {
       setSessionMessage(error.message || '发送失败', 'is-error');
+    } finally {
+      state.sendingBroadcast = false;
+      if (submitButton) submitButton.disabled = false;
     }
   }
 
   async function submitFeedback() {
+    if (state.submittingFeedback) return;
     if (!state.currentUser) {
       setSessionMessage('请先登录后再提交反馈。', 'is-error');
       return;
@@ -2640,6 +2659,8 @@
       textField?.focus();
       return;
     }
+    state.submittingFeedback = true;
+    if (refs.feedbackSubmitButton) refs.feedbackSubmitButton.disabled = true;
     try {
       await apiFetch('/api/feedback', {
         method: 'POST',
@@ -2650,6 +2671,9 @@
       setSessionMessage('反馈已发送给管理员。', 'is-success');
     } catch (error) {
       setSessionMessage(error.message || '反馈发送失败', 'is-error');
+    } finally {
+      state.submittingFeedback = false;
+      if (refs.feedbackSubmitButton) refs.feedbackSubmitButton.disabled = false;
     }
   }
 
@@ -3194,6 +3218,9 @@
 
     refs.draftForm.addEventListener('submit', async event => {
       event.preventDefault();
+      if (state.submittingListing) return;
+      state.submittingListing = true;
+      refs.draftSubmitButton.disabled = true;
       try {
         const listing = await submitListing(new FormData(refs.draftForm));
         refs.composerFeedback.hidden = false;
@@ -3202,6 +3229,9 @@
       } catch (error) {
         refs.composerFeedback.hidden = false;
         refs.composerFeedback.textContent = error.message || '发布失败';
+      } finally {
+        state.submittingListing = false;
+        refs.draftSubmitButton.disabled = false;
       }
     });
   }

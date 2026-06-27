@@ -14,6 +14,7 @@ const databaseUrl = String(process.env.DATABASE_URL || '').trim();
 const allowLocalStore = ['1', 'true', 'yes'].includes(String(process.env.ALLOW_LOCAL_STORE || '').trim().toLowerCase());
 const dbConnectTimeoutMs = Math.max(1000, Number(process.env.DB_CONNECT_TIMEOUT_MS || 10000));
 const dbQueryTimeoutMs = Math.max(1000, Number(process.env.DB_QUERY_TIMEOUT_MS || 10000));
+const notificationDedupWindowMs = Math.max(0, Number(process.env.NOTIFICATION_DEDUP_WINDOW_MS || 30000));
 const pool = databaseUrl
   ? new Pool({
       connectionString: databaseUrl,
@@ -1487,14 +1488,42 @@ function isOwnerOrAdmin(user, listing) {
   return !!user && (user.role === 'admin' || listing.ownerId === user.id);
 }
 
+function notificationTimestamp(value) {
+  if (!value || value === 'now') return Date.now();
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function notificationDedupeKey(notification) {
+  return [
+    notification?.audience || '',
+    notification?.createdByRole || '',
+    notification?.createdById || '',
+    notification?.type || '',
+    notification?.targetUserId || '',
+    notification?.listingId || '',
+    notification?.text || ''
+  ].join('\u001f');
+}
+
 function addNotification(store, payload) {
-  store.notifications.unshift({
-    id: store.nextNotificationId++,
-    at: new Date().toISOString(),
+  const notification = {
     ...payload,
+    at: new Date().toISOString(),
     text: sanitizeText(payload?.text, { maxLength: 300, preserveNewlines: true })
-  });
+  };
+  const dedupeKey = notificationDedupeKey(notification);
+  const now = notificationTimestamp(notification.at);
+  const duplicate = notificationDedupWindowMs > 0
+    ? store.notifications.find(item => notificationDedupeKey(item) === dedupeKey
+      && Math.abs(now - notificationTimestamp(item.at)) <= notificationDedupWindowMs)
+    : null;
+  if (duplicate) return duplicate;
+
+  notification.id = store.nextNotificationId++;
+  store.notifications.unshift(notification);
   store.notifications = store.notifications.slice(0, 50);
+  return notification;
 }
 
 async function readBody(req) {
@@ -1721,6 +1750,7 @@ async function handleApi(req, res, store, url) {
     addNotification(store, {
       audience: 'admin',
       createdByRole: user.role || 'member',
+      createdById: user.id,
       text: `用户反馈（${sanitizeText(user.name, { maxLength: 40 }) || '匿名用户'}）：${text}`,
       type: 'feedback'
     });
@@ -1736,18 +1766,14 @@ async function handleApi(req, res, store, url) {
     if (!body) return sendJson(res, 400, { error: 'invalid json' });
     const text = sanitizeText(body.text, { maxLength: 300, preserveNewlines: true });
     if (!text) return sendJson(res, 400, { error: 'text required' });
-    const notification = {
-      id: store.nextNotificationId++,
+    const notification = addNotification(store, {
       audience: body.audience || 'all',
       createdByRole: 'admin',
+      createdById: user.id,
       text,
-      at: new Date().toISOString(),
-      type: body.type || 'system'
-    };
-    if (body.targetUserId) {
-      notification.targetUserId = body.targetUserId;
-    }
-    store.notifications.unshift(notification);
+      type: body.type || 'system',
+      ...(body.targetUserId ? { targetUserId: body.targetUserId } : {})
+    });
     await saveStore(store);
     return sendJson(res, 201, { notification });
   }
@@ -1842,7 +1868,9 @@ async function handleApi(req, res, store, url) {
       addNotification(store, {
         audience: 'admin',
         createdByRole: 'admin',
+        createdById: user.id,
         type: 'system',
+        listingId: listing.id,
         text: `有新票务已发布：${listing.title}`
       });
     }
@@ -1904,7 +1932,9 @@ async function handleApi(req, res, store, url) {
       addNotification(store, {
         audience: 'admin',
         createdByRole: 'admin',
+        createdById: user.id,
         type: 'system',
+        listingId: listing.id,
         text: `有票务已更新：${listing.title}`
       });
     }
@@ -1936,6 +1966,7 @@ async function handleApi(req, res, store, url) {
       addNotification(store, {
         audience: 'private',
         createdByRole: 'admin',
+        createdById: user.id,
         type: 'comment',
         text: `你的票务有新评论：${listing.title}`,
         targetUserId: listing.ownerId,
@@ -1979,7 +2010,10 @@ async function handleApi(req, res, store, url) {
     store.listings.splice(index, 1);
     addNotification(store, {
       audience: 'all',
+      createdByRole: 'admin',
+      createdById: user.id,
       type: 'system',
+      listingId: id,
       text: `票务已下架：${listing.title}`
     });
     await saveStore(store);
@@ -2024,7 +2058,10 @@ async function handleApi(req, res, store, url) {
     });
     addNotification(store, {
       audience: 'all',
+      createdByRole: 'admin',
+      createdById: user.id,
       type: 'review',
+      listingId: id,
       text: `票务${body.action === 'approve' ? '已通过' : '被驳回'}：${listing.title}`,
       targetUserId: listing.ownerId
     });

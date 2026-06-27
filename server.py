@@ -18,6 +18,7 @@ configured_data_file = str(os.environ.get('DATA_FILE_PATH', '')).strip()
 DATA_FILE = Path(configured_data_file).expanduser() if configured_data_file else ROOT / 'data.json'
 PORT = int(os.environ.get('PORT', '3000'))
 IS_PRODUCTION = os.environ.get('NODE_ENV', '').lower() == 'production'
+NOTIFICATION_DEDUP_WINDOW_MS = max(0, int(os.environ.get('NOTIFICATION_DEDUP_WINDOW_MS', '30000')))
 CONFIGURED_ALLOWED_ORIGINS = {
     item.strip()
     for item in os.environ.get('ALLOWED_ORIGINS', '').split(',')
@@ -396,6 +397,54 @@ def is_management_notification(notification: dict) -> bool:
     )
 
 
+def notification_timestamp(value) -> float:
+    text = str(value or '').strip()
+    if not text or text == 'now':
+        return 0
+    try:
+        return datetime.fromisoformat(text.replace('Z', '+00:00')).timestamp()
+    except ValueError:
+        return 0
+
+
+def notification_dedupe_key(notification: dict) -> str:
+    return '\x1f'.join(str(notification.get(key, '') or '') for key in [
+        'audience',
+        'createdByRole',
+        'createdById',
+        'type',
+        'targetUserId',
+        'listingId',
+        'text',
+    ])
+
+
+def add_notification(data: dict, payload: dict) -> dict:
+    notifications = data.setdefault('notifications', [])
+    notification = {
+        **payload,
+        'at': payload.get('at') or current_iso(),
+        'text': str(payload.get('text') or '').strip(),
+    }
+    dedupe_key = notification_dedupe_key(notification)
+    now = notification_timestamp(notification.get('at'))
+    if NOTIFICATION_DEDUP_WINDOW_MS > 0 and now > 0:
+        for item in notifications:
+            item_timestamp = notification_timestamp(item.get('at'))
+            if (
+                item_timestamp > 0
+                and notification_dedupe_key(item) == dedupe_key
+                and abs(now - item_timestamp) * 1000 <= NOTIFICATION_DEDUP_WINDOW_MS
+            ):
+                return item
+
+    notification['id'] = data.get('nextNotificationId', 1)
+    notifications.insert(0, notification)
+    data['nextNotificationId'] = int(data.get('nextNotificationId', 1)) + 1
+    data['notifications'] = notifications[:50]
+    return notification
+
+
 def enrich_listing(listing: dict, user: dict | None) -> dict:
     favorites = listing.get('favoritesBy', [])
     comments = listing.get('comments', []) if isinstance(listing.get('comments', []), list) else []
@@ -725,8 +774,7 @@ class Handler(BaseHTTPRequestHandler):
             data['nextListingId'] = int(data.get('nextListingId', 1)) + 1
             data['listings'].insert(0, listing)
             if user['role'] != 'admin':
-                data.setdefault('notifications', []).insert(0, {'id': data.get('nextNotificationId', 1), 'audience': 'admin', 'createdByRole': 'admin', 'text': f'有新票务已发布：{listing["title"]}', 'at': 'now', 'type': 'system'})
-                data['nextNotificationId'] = int(data.get('nextNotificationId', 1)) + 1
+                add_notification(data, {'audience': 'admin', 'createdByRole': 'admin', 'createdById': user.get('id'), 'text': f'有新票务已发布：{listing["title"]}', 'type': 'system', 'listingId': listing['id']})
             save_data(data)
             json_response(self, 201, {'listing': enrich_listing(listing, user)})
             return
@@ -774,8 +822,7 @@ class Handler(BaseHTTPRequestHandler):
             listing.setdefault('createdAt', listing['updatedAt'])
             listing.setdefault('reviewLog', []).insert(0, {'at': current_iso(), 'action': 'published', 'by': user['name'], 'note': '直接保存并发布'})
             if user['role'] != 'admin':
-                data.setdefault('notifications', []).insert(0, {'id': data.get('nextNotificationId', 1), 'audience': 'admin', 'createdByRole': 'admin', 'text': f'有票务已更新：{listing["title"]}', 'at': 'now', 'type': 'system'})
-                data['nextNotificationId'] = int(data.get('nextNotificationId', 1)) + 1
+                add_notification(data, {'audience': 'admin', 'createdByRole': 'admin', 'createdById': user.get('id'), 'text': f'有票务已更新：{listing["title"]}', 'type': 'system', 'listingId': listing['id']})
             save_data(data)
             json_response(self, 200, {'listing': enrich_listing(listing, user)})
             return
@@ -809,18 +856,16 @@ class Handler(BaseHTTPRequestHandler):
             }
             listing.setdefault('comments', []).insert(0, comment)
             if str(user['id']) != str(listing.get('ownerId')):
-                data.setdefault('notifications', []).insert(0, {
-                    'id': data.get('nextNotificationId', 1),
+                add_notification(data, {
                     'audience': 'private',
                     'createdByRole': 'admin',
+                    'createdById': user.get('id'),
                     'text': f'你的票务有新评论：{listing["title"]}',
-                    'at': 'now',
                     'type': 'comment',
                     'targetUserId': listing.get('ownerId'),
                     'listingId': listing_id,
                     'commentId': comment['id']
                 })
-                data['nextNotificationId'] = int(data.get('nextNotificationId', 1)) + 1
             save_data(data)
             json_response(self, 200, {'comment': comment})
             return
@@ -873,8 +918,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             del data['listings'][index]
             data.setdefault('reviews', []).insert(0, {'id': secrets.randbits(31), 'listingId': listing_id, 'action': 'delete', 'status': 'done', 'note': '已删除', 'createdAt': 'now', 'operator': user['name']})
-            data.setdefault('notifications', []).insert(0, {'id': data.get('nextNotificationId', 1), 'audience': 'all', 'createdByRole': 'admin', 'text': f'票务已下架：{listing["title"]}', 'at': 'now', 'type': 'system'})
-            data['nextNotificationId'] = int(data.get('nextNotificationId', 1)) + 1
+            add_notification(data, {'audience': 'all', 'createdByRole': 'admin', 'createdById': user.get('id'), 'text': f'票务已下架：{listing["title"]}', 'type': 'system', 'listingId': listing_id})
             save_data(data)
             json_response(self, 200, {'ok': True})
             return
@@ -920,8 +964,7 @@ class Handler(BaseHTTPRequestHandler):
             note = body.get('note') or ('审核通过' if action == 'approve' else '审核驳回')
             listing.setdefault('reviewLog', []).insert(0, {'at': 'now', 'action': action, 'by': user['name'], 'note': note})
             data.setdefault('reviews', []).insert(0, {'id': secrets.randbits(31), 'listingId': listing_id, 'action': action, 'status': listing['status'], 'note': note, 'createdAt': 'now', 'operator': user['name']})
-            data.setdefault('notifications', []).insert(0, {'id': data.get('nextNotificationId', 1), 'audience': 'all', 'createdByRole': 'admin', 'text': f'票务{"已通过" if action == "approve" else "被驳回"}：{listing["title"]}', 'at': 'now', 'type': 'review', 'targetUserId': listing['ownerId']})
-            data['nextNotificationId'] = int(data.get('nextNotificationId', 1)) + 1
+            add_notification(data, {'audience': 'all', 'createdByRole': 'admin', 'createdById': user.get('id'), 'text': f'票务{"已通过" if action == "approve" else "被驳回"}：{listing["title"]}', 'type': 'review', 'targetUserId': listing['ownerId'], 'listingId': listing_id})
             save_data(data)
             json_response(self, 200, {'listing': enrich_listing(listing, user)})
             return
@@ -954,18 +997,16 @@ class Handler(BaseHTTPRequestHandler):
             if not text:
                 json_response(self, 400, {'error': 'text required'})
                 return
-            notification = {
-                'id': data.get('nextNotificationId', 1),
+            payload = {
                 'audience': body.get('audience', 'all'),
                 'createdByRole': 'admin',
+                'createdById': user.get('id'),
                 'text': text,
-                'at': current_iso(),
                 'type': body.get('type', 'system')
             }
             if body.get('targetUserId'):
-                notification['targetUserId'] = body.get('targetUserId')
-            data.setdefault('notifications', []).insert(0, notification)
-            data['nextNotificationId'] = int(data.get('nextNotificationId', 1)) + 1
+                payload['targetUserId'] = body.get('targetUserId')
+            notification = add_notification(data, payload)
             save_data(data)
             json_response(self, 201, {'notification': notification})
             return
