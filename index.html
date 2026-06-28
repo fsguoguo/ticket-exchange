@@ -218,11 +218,13 @@
       gap: 14px;
     }
 
-    #adminLiveManageButton {
+    #adminLiveManageButton,
+    #adminAccountManageButton {
       display: none;
     }
 
-    body[data-page="center"] #adminLiveManageButton {
+    body[data-page="center"] #adminLiveManageButton,
+    body[data-page="center"] #adminAccountManageButton {
       display: inline-flex;
     }
 
@@ -1723,6 +1725,7 @@
                 <button class="btn btn-secondary" type="button" id="logoutButton">退出登录</button>
                 <button class="btn btn-secondary" type="button" id="changePasswordToggleButton">修改密码</button>
                 <button class="btn btn-secondary" type="button" id="adminLiveManageButton">管理Live</button>
+                <button class="btn btn-secondary" type="button" id="adminAccountManageButton">账号管理</button>
               </div>
               <div class="session-feedback-box" id="changePasswordArea" hidden>
                 <label class="choice-label" for="changePasswordOld">修改密码</label>

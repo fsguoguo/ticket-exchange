@@ -181,6 +181,8 @@ const LIVE_SOURCES = [
 
 let liveRefreshPromise = null;
 
+const USER_RESET_PASSWORD = '123456';
+
 const DEFAULT_PASSWORDS = {
   admin: 'admin123'
 };
@@ -401,7 +403,7 @@ function normalizeStore(store) {
     }
     const algo = passwordAlgorithm(user);
     if (!user.passwordHash || (algo === 'sha256' && !user.passwordSalt)) {
-      const defaultPassword = DEFAULT_PASSWORDS[user.name] || '123456';
+      const defaultPassword = DEFAULT_PASSWORDS[user.name] || USER_RESET_PASSWORD;
       const passwordRecord = makePasswordRecord(defaultPassword);
       applyPasswordRecord(user, passwordRecord);
     } else if (!user.passwordAlgo) {
@@ -708,6 +710,32 @@ function publicUser(user) {
     id: user.id,
     name: sanitizeText(user.name, { maxLength: 40 }),
     role: user.role
+  };
+}
+
+function activeSessionCountForUser(store, userId) {
+  const id = String(userId || '');
+  if (!id) return 0;
+  const sessionTokens = new Set();
+  const tokens = store.tokens && typeof store.tokens === 'object' ? store.tokens : {};
+  for (const [token, value] of Object.entries(tokens)) {
+    const recordUserId = typeof value === 'string' ? value : value?.userId;
+    if (String(recordUserId || '') === id) sessionTokens.add(token);
+  }
+  for (const item of Array.isArray(store.sessions) ? store.sessions : []) {
+    if (String(item?.userId || '') === id && item?.token) sessionTokens.add(item.token);
+  }
+  return sessionTokens.size;
+}
+
+function adminUserSummary(store, user) {
+  const summary = publicUser(user);
+  if (!summary) return null;
+  return {
+    ...summary,
+    activeSessionCount: activeSessionCountForUser(store, user.id),
+    passwordResetAt: user.passwordResetAt || null,
+    passwordResetBy: user.passwordResetBy || null
   };
 }
 
@@ -1533,6 +1561,27 @@ function removeSession(store, token) {
   return changed || store.sessions.length !== before;
 }
 
+function removeSessionsForUser(store, userId, keepToken = '') {
+  const id = String(userId || '');
+  if (!id) return 0;
+  const tokensToRemove = new Set();
+  const tokens = store.tokens && typeof store.tokens === 'object' ? store.tokens : {};
+  for (const [token, value] of Object.entries(tokens)) {
+    const recordUserId = typeof value === 'string' ? value : value?.userId;
+    if (String(recordUserId || '') === id) tokensToRemove.add(token);
+  }
+  for (const item of Array.isArray(store.sessions) ? store.sessions : []) {
+    if (String(item?.userId || '') === id && item?.token) tokensToRemove.add(item.token);
+  }
+  if (keepToken) tokensToRemove.delete(keepToken);
+
+  let removed = 0;
+  for (const token of tokensToRemove) {
+    if (removeSession(store, token)) removed += 1;
+  }
+  return removed;
+}
+
 function normalizeSessionToken(store, token) {
   const tokenValue = store.tokens?.[token];
   const sessions = Array.isArray(store.sessions) ? store.sessions : [];
@@ -1819,6 +1868,34 @@ async function handleApi(req, res, store, url) {
       user: publicUser(user),
       expiresAt: user ? session.expiresAt : null,
       tokenExpired: session.expired
+    });
+  }
+
+  if (req.method === 'GET' && pathName === '/api/admin/users') {
+    if (!user || user.role !== 'admin') return sendJson(res, 403, { error: 'admin only' });
+    const users = store.users
+      .map(item => adminUserSummary(store, item))
+      .filter(Boolean)
+      .sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1)
+        || String(a.name).localeCompare(String(b.name)));
+    return sendJson(res, 200, { users });
+  }
+
+  if (req.method === 'POST' && pathName.startsWith('/api/admin/users/') && pathName.endsWith('/reset-password')) {
+    if (!user || user.role !== 'admin') return sendJson(res, 403, { error: 'admin only' });
+    const userId = decodeURIComponent(pathName.slice('/api/admin/users/'.length, -'/reset-password'.length));
+    const targetUser = store.users.find(item => String(item.id) === userId);
+    if (!targetUser) return sendJson(res, 404, { error: 'user not found' });
+
+    applyPasswordRecord(targetUser, makePasswordRecord(USER_RESET_PASSWORD));
+    targetUser.passwordResetAt = new Date().toISOString();
+    targetUser.passwordResetBy = user.id;
+    const sessionsRevoked = removeSessionsForUser(store, targetUser.id, targetUser.id === user.id ? session.token : '');
+    await saveStore(store);
+    return sendJson(res, 200, {
+      ok: true,
+      user: adminUserSummary(store, targetUser),
+      sessionsRevoked
     });
   }
 

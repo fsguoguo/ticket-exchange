@@ -7,7 +7,7 @@
   const localApiBase = runtimeLocation && (runtimeLocation.protocol === 'file:' || runtimeLocation.hostname === 'localhost' || runtimeLocation.hostname === '127.0.0.1')
     ? 'http://localhost:3000'
     : '';
-  const apiBase = configuredApiBase || localApiBase;
+  const apiBase = localApiBase || configuredApiBase;
   const tokenKey = 'starsea:token';
   const offlineSessionKey = 'starsea:offlineSession';
   const notificationReadKey = 'starsea:notificationReads';
@@ -55,6 +55,7 @@
     currentUser: null,
     listings: [],
     notifications: [],
+    adminUsers: [],
     page: 'home',
     franchise: 'all',
     kind: 'all',
@@ -125,8 +126,8 @@
       .session-actions { display: flex; flex-wrap: wrap; gap: 10px; }
       .session-login, .session-logged { margin-top: 14px; }
       .session-logged { display: flex; justify-content: flex-start; gap: 14px; }
-      #adminLiveManageButton { display: none; }
-      body[data-page="center"] #adminLiveManageButton { display: inline-flex; }
+      #adminLiveManageButton, #adminAccountManageButton { display: none; }
+      body[data-page="center"] #adminLiveManageButton, body[data-page="center"] #adminAccountManageButton { display: inline-flex; }
       .session-feedback-box { margin-top: 12px; display: grid; gap: 8px; }
       .session-feedback-box[hidden] { display: none !important; }
       .session-feedback { margin: 10px 0 0; min-height: 1.4em; color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
@@ -1557,6 +1558,9 @@
     if (refs.adminLiveManageButton) {
       refs.adminLiveManageButton.hidden = !isAdmin;
     }
+    if (refs.adminAccountManageButton) {
+      refs.adminAccountManageButton.hidden = !isAdmin;
+    }
     if (refs.notificationDeleteAllButton) {
       refs.notificationDeleteAllButton.hidden = !isAdmin;
     }
@@ -1573,6 +1577,7 @@
         refs.notificationTrashOverlay.style.display = 'none';
         refs.notificationTrashOverlay.remove();
       }
+      if (refs.adminAccountPanel) refs.adminAccountPanel.hidden = true;
     }
     if (refs.notificationTrashOverlay && !isAdmin) {
       refs.notificationTrashOverlay.classList.remove('is-open');
@@ -2207,13 +2212,15 @@
       renderSessionPanel();
       renderStats();
 
-      const [listingsPayload, notificationsPayload, livePayload] = await Promise.all([
+      const [listingsPayload, notificationsPayload, livePayload, adminUsersPayload] = await Promise.all([
         apiFetch('/api/listings'),
         apiFetch('/api/notifications'),
-        apiFetch('/api/live-options')
+        apiFetch('/api/live-options'),
+        state.currentUser?.role === 'admin' ? apiFetch('/api/admin/users') : Promise.resolve({ users: [] })
       ]);
       state.listings = (listingsPayload.listings || []).map(normalizeListing);
       state.notifications = notificationsPayload.notifications || [];
+      state.adminUsers = adminUsersPayload.users || [];
       applyLiveOptionsPayload(livePayload);
       pruneNotificationLocalState();
       state.notificationPage = 1;
@@ -2225,6 +2232,7 @@
       refs.composerFeedback.hidden = false;
       refs.composerFeedback.textContent = '后端服务暂时不可用，页面已进入离线模式，请稍后再试。';
       state.listings = [];
+      state.adminUsers = [];
       state.liveOptionsByFranchise = { bangdream: [], lovelive: [], imas: [], other: [] };
     }
   }
@@ -2268,6 +2276,83 @@
   async function refreshData() {
     await loadData();
     renderAll();
+  }
+
+  function renderAdminAccountsPanel() {
+    if (!refs.adminAccountList || !refs.adminAccountPanel) return;
+    if (state.currentUser?.role !== 'admin') {
+      refs.adminAccountPanel.hidden = true;
+      refs.adminAccountList.innerHTML = '';
+      return;
+    }
+
+    const users = Array.isArray(state.adminUsers) ? state.adminUsers : [];
+    if (!users.length) {
+      refs.adminAccountList.innerHTML = '<div class="loading-note">暂无账号。</div>';
+      return;
+    }
+
+    refs.adminAccountList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+    users.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'review-item';
+
+      const head = document.createElement('div');
+      head.className = 'review-item-head';
+
+      const title = document.createElement('p');
+      title.className = 'review-item-title';
+      title.textContent = item.name || item.id || 'unknown';
+
+      const role = document.createElement('span');
+      role.className = 'tiny-pill';
+      role.textContent = item.role === 'admin' ? '管理员' : '普通用户';
+
+      head.append(title, role);
+
+      const meta = document.createElement('p');
+      meta.className = 'muted';
+      meta.style.margin = '4px 0 8px';
+      meta.style.fontSize = '0.84rem';
+      const activeCount = Number(item.activeSessionCount || 0);
+      meta.textContent = `ID: ${item.id || '-'} / 在线会话: ${activeCount}`;
+
+      const actions = document.createElement('div');
+      actions.className = 'review-actions';
+
+      const resetButton = document.createElement('button');
+      resetButton.className = 'card-btn danger';
+      resetButton.type = 'button';
+      resetButton.textContent = '重置为 123456';
+      resetButton.addEventListener('click', () => resetAdminUserPassword(item.id));
+
+      actions.append(resetButton);
+      row.append(head, meta, actions);
+      fragment.appendChild(row);
+    });
+    refs.adminAccountList.appendChild(fragment);
+  }
+
+  async function resetAdminUserPassword(userId) {
+    if (!state.currentUser || state.currentUser.role !== 'admin') return;
+    const target = state.adminUsers.find(item => String(item.id) === String(userId));
+    if (!target) return;
+    if (!confirm(`确认将账号 ${target.name || target.id} 的密码重置为 123456？`)) return;
+
+    try {
+      const payload = await apiFetch(`/api/admin/users/${encodeURIComponent(userId)}/reset-password`, {
+        method: 'POST',
+        body: '{}'
+      });
+      if (payload.user) {
+        state.adminUsers = state.adminUsers.map(item => String(item.id) === String(payload.user.id) ? payload.user : item);
+      }
+      renderAdminAccountsPanel();
+      setSessionMessage(`账号 ${target.name || target.id} 的密码已重置为 123456。`, 'is-success');
+    } catch (error) {
+      setSessionMessage(error.message || '重置密码失败', 'is-error');
+    }
   }
 
   function renderAdminLivePanel() {
@@ -2871,6 +2956,23 @@
       `;
       sidebar.insertBefore(livePanel, document.getElementById('notificationPanel'));
     }
+    if (!document.getElementById('adminAccountPanel')) {
+      const accountPanel = document.createElement('section');
+      accountPanel.className = 'broadcast-panel';
+      accountPanel.id = 'adminAccountPanel';
+      accountPanel.hidden = true;
+      accountPanel.innerHTML = `
+        <div class="panel-head">
+          <h3 class="panel-title">账号管理</h3>
+          <div class="panel-head-actions">
+            <span class="tiny-pill">仅管理员</span>
+            <button class="btn btn-secondary" type="button" id="adminAccountPanelClose">关闭</button>
+          </div>
+        </div>
+        <div class="review-list" id="adminAccountList"></div>
+      `;
+      sidebar.insertBefore(accountPanel, document.getElementById('notificationPanel'));
+    }
     if (!document.getElementById('detailOverlay')) {
       const overlay = document.createElement('div');
       overlay.className = 'detail-overlay';
@@ -2890,6 +2992,7 @@
     refs.notificationList = document.getElementById('notificationList');
     refs.notificationPager = document.getElementById('notificationPager');
     refs.adminLiveManageButton = document.getElementById('adminLiveManageButton');
+    refs.adminAccountManageButton = document.getElementById('adminAccountManageButton');
     refs.notificationDeleteAllButton = document.getElementById('notificationDeleteAllButton');
     refs.notificationTrashButton = document.getElementById('notificationTrashButton');
     refs.notificationTrashOverlay = document.getElementById('notificationTrashOverlay');
@@ -2906,6 +3009,9 @@
     refs.adminLiveCancelEditButton = document.getElementById('adminLiveCancelEditButton');
     refs.adminLiveList = document.getElementById('adminLiveList');
     refs.adminLivePager = document.getElementById('adminLivePager');
+    refs.adminAccountPanel = document.getElementById('adminAccountPanel');
+    refs.adminAccountList = document.getElementById('adminAccountList');
+    refs.adminAccountPanelClose = document.getElementById('adminAccountPanelClose');
     refs.adminBroadcastCancel = document.getElementById('adminBroadcastCancel');
     refs.detailOverlay = document.getElementById('detailOverlay');
     refs.detailContent = document.getElementById('detailContent');
@@ -3165,6 +3271,24 @@
       });
     }
 
+    if (refs.adminAccountManageButton) {
+      refs.adminAccountManageButton.addEventListener('click', () => {
+        if (!state.currentUser || state.currentUser.role !== 'admin') return;
+        const panel = document.getElementById('adminAccountPanel');
+        if (!panel) return;
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) {
+          renderAdminAccountsPanel();
+        }
+      });
+    }
+
+    if (refs.adminAccountPanelClose) {
+      refs.adminAccountPanelClose.addEventListener('click', () => {
+        if (refs.adminAccountPanel) refs.adminAccountPanel.hidden = true;
+      });
+    }
+
     if (refs.notificationTrashButton) {
       refs.notificationTrashButton.onclick = () => {
         if (refs.notificationTrashOverlay) {
@@ -3248,6 +3372,7 @@
     renderNotifications();
     renderNotificationTrash();
     if (state.page === 'center') renderAdminLivePanel();
+    if (state.page === 'center') renderAdminAccountsPanel();
     syncPageNavigation();
     syncToolbarAlignment();
     if (state.selectedListingId) {
@@ -3279,6 +3404,7 @@
     refs.changePasswordForm = document.getElementById('changePasswordForm');
     refs.changePasswordToggleButton = document.getElementById('changePasswordToggleButton');
     refs.changePasswordCancelButton = document.getElementById('changePasswordCancelButton');
+    refs.adminAccountManageButton = document.getElementById('adminAccountManageButton');
     refs.feedbackComposerArea = document.getElementById('feedbackComposerArea');
     refs.feedbackText = document.getElementById('feedbackText');
     refs.feedbackSubmitButton = document.getElementById('feedbackSubmitButton');
