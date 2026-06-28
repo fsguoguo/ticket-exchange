@@ -123,6 +123,7 @@
       .broadcast-panel { margin-top: 14px; padding: 18px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); }
       .broadcast-panel[hidden] { display: none !important; }
       .broadcast-form { display: grid; gap: 10px; margin-top: 12px; }
+      #adminLiveSearch, #adminAccountSearch { width: 100%; margin-top: 16px; }
       .broadcast-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
       .session-status .muted, .panel .muted { color: var(--muted-2); }
       .session-panel, .review-panel, .notification-panel { border-radius: var(--radius-lg); padding: 20px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); backdrop-filter: none; }
