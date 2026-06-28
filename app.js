@@ -67,6 +67,9 @@
     currentPage: 1,
     notificationPage: 1,
     adminLivePage: 1,
+    adminAccountPage: 1,
+    adminLiveSearch: '',
+    adminAccountSearch: '',
     loading: true,
     submittingListing: false,
     sendingBroadcast: false,
@@ -84,6 +87,7 @@
   const listingPageSize = 4;
   const notificationPageSize = 5;
   const adminLivePageSize = 8;
+  const adminAccountPageSize = 8;
 
   const refs = {};
   const liveOptionLookup = new Map();
@@ -2283,18 +2287,54 @@
     if (state.currentUser?.role !== 'admin') {
       refs.adminAccountPanel.hidden = true;
       refs.adminAccountList.innerHTML = '';
+      if (refs.adminAccountPager) {
+        refs.adminAccountPager.style.display = 'none';
+        refs.adminAccountPager.innerHTML = '';
+      }
       return;
+    }
+    if (refs.adminAccountSearch && refs.adminAccountSearch.value !== state.adminAccountSearch) {
+      refs.adminAccountSearch.value = state.adminAccountSearch;
     }
 
     const users = Array.isArray(state.adminUsers) ? state.adminUsers : [];
     if (!users.length) {
       refs.adminAccountList.innerHTML = '<div class="loading-note">暂无账号。</div>';
+      if (refs.adminAccountPager) {
+        refs.adminAccountPager.style.display = 'none';
+        refs.adminAccountPager.innerHTML = '';
+      }
       return;
     }
 
+    const query = String(state.adminAccountSearch || '').trim().toLowerCase();
+    const filteredUsers = query
+      ? users.filter(item => [
+          item.id,
+          item.name,
+          item.role,
+          item.role === 'admin' ? '管理员' : '普通用户'
+        ].join(' ').toLowerCase().includes(query))
+      : users;
+
+    if (!filteredUsers.length) {
+      refs.adminAccountList.innerHTML = '<div class="loading-note">没有匹配的账号。</div>';
+      if (refs.adminAccountPager) {
+        refs.adminAccountPager.style.display = 'none';
+        refs.adminAccountPager.innerHTML = '';
+      }
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(filteredUsers.length / adminAccountPageSize));
+    if (state.adminAccountPage > totalPages) state.adminAccountPage = totalPages;
+    if (state.adminAccountPage < 1) state.adminAccountPage = 1;
+    const startIndex = (state.adminAccountPage - 1) * adminAccountPageSize;
+    const pageItems = filteredUsers.slice(startIndex, startIndex + adminAccountPageSize);
+
     refs.adminAccountList.innerHTML = '';
     const fragment = document.createDocumentFragment();
-    users.forEach(item => {
+    pageItems.forEach(item => {
       const row = document.createElement('div');
       row.className = 'review-item';
 
@@ -2324,7 +2364,7 @@
       const resetButton = document.createElement('button');
       resetButton.className = 'card-btn danger';
       resetButton.type = 'button';
-      resetButton.textContent = '重置为 123456';
+      resetButton.textContent = '重置密码';
       resetButton.addEventListener('click', () => resetAdminUserPassword(item.id));
 
       actions.append(resetButton);
@@ -2332,6 +2372,27 @@
       fragment.appendChild(row);
     });
     refs.adminAccountList.appendChild(fragment);
+
+    if (!refs.adminAccountPager) return;
+    if (totalPages <= 1) {
+      refs.adminAccountPager.style.display = 'none';
+      refs.adminAccountPager.innerHTML = '';
+      return;
+    }
+    refs.adminAccountPager.style.display = 'flex';
+    refs.adminAccountPager.innerHTML = `
+      <button class="btn pager-button" type="button" data-admin-account-page="prev" ${state.adminAccountPage === 1 ? 'disabled' : ''}>上一页</button>
+      <span class="pager-info">第 ${state.adminAccountPage} / ${totalPages} 页</span>
+      <button class="btn pager-button" type="button" data-admin-account-page="next" ${state.adminAccountPage === totalPages ? 'disabled' : ''}>下一页</button>
+    `;
+    refs.adminAccountPager.querySelectorAll('[data-admin-account-page]').forEach(button => {
+      button.addEventListener('click', () => {
+        const direction = button.getAttribute('data-admin-account-page');
+        if (direction === 'prev' && state.adminAccountPage > 1) state.adminAccountPage -= 1;
+        if (direction === 'next' && state.adminAccountPage < totalPages) state.adminAccountPage += 1;
+        renderAdminAccountsPanel();
+      });
+    });
   }
 
   async function resetAdminUserPassword(userId) {
@@ -2357,6 +2418,9 @@
 
   function renderAdminLivePanel() {
     if (!refs.adminLiveList || !refs.adminLivePanel) return;
+    if (refs.adminLiveSearch && refs.adminLiveSearch.value !== state.adminLiveSearch) {
+      refs.adminLiveSearch.value = state.adminLiveSearch;
+    }
     const all = Object.values(state.liveOptionsByFranchise).flat();
     if (!all.length) {
       refs.adminLiveList.innerHTML = '<div class="loading-note">暂无 Live 选项，可通过上方表单手动添加。</div>';
@@ -2367,7 +2431,30 @@
       return;
     }
     const franchiseLabelsMap = { bangdream: 'Bang Dream', lovelive: 'LoveLive', imas: 'IM@S', other: '其他' };
-    const sorted = all.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    const query = String(state.adminLiveSearch || '').trim().toLowerCase();
+    const filtered = query
+      ? all.filter(item => [
+          item.title,
+          item.venue,
+          item.city,
+          item.franchise,
+          item.franchiseLabel || franchiseLabelsMap[item.franchise],
+          item.date,
+          liveOptionDateText(item),
+          ...(Array.isArray(item.tags) ? item.tags : [])
+        ].join(' ').toLowerCase().includes(query))
+      : all;
+
+    if (!filtered.length) {
+      refs.adminLiveList.innerHTML = '<div class="loading-note">没有匹配的 Live 选项。</div>';
+      if (refs.adminLivePager) {
+        refs.adminLivePager.style.display = 'none';
+        refs.adminLivePager.innerHTML = '';
+      }
+      return;
+    }
+
+    const sorted = filtered.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     const totalPages = Math.max(1, Math.ceil(sorted.length / adminLivePageSize));
     if (state.adminLivePage > totalPages) state.adminLivePage = totalPages;
     if (state.adminLivePage < 1) state.adminLivePage = 1;
@@ -2951,6 +3038,7 @@
             <button class="btn btn-secondary" type="button" id="adminLivePanelClose">关闭</button>
           </div>
         </form>
+        <input class="field" id="adminLiveSearch" type="search" placeholder="搜索 Live 标题、场馆、日期或标签" />
         <div class="review-list" id="adminLiveList"></div>
         <div class="listing-pager" id="adminLivePager"></div>
       `;
@@ -2969,7 +3057,9 @@
             <button class="btn btn-secondary" type="button" id="adminAccountPanelClose">关闭</button>
           </div>
         </div>
+        <input class="field" id="adminAccountSearch" type="search" placeholder="搜索用户名、ID 或角色" />
         <div class="review-list" id="adminAccountList"></div>
+        <div class="listing-pager" id="adminAccountPager"></div>
       `;
       sidebar.insertBefore(accountPanel, document.getElementById('notificationPanel'));
     }
@@ -3009,8 +3099,11 @@
     refs.adminLiveCancelEditButton = document.getElementById('adminLiveCancelEditButton');
     refs.adminLiveList = document.getElementById('adminLiveList');
     refs.adminLivePager = document.getElementById('adminLivePager');
+    refs.adminLiveSearch = document.getElementById('adminLiveSearch');
     refs.adminAccountPanel = document.getElementById('adminAccountPanel');
     refs.adminAccountList = document.getElementById('adminAccountList');
+    refs.adminAccountPager = document.getElementById('adminAccountPager');
+    refs.adminAccountSearch = document.getElementById('adminAccountSearch');
     refs.adminAccountPanelClose = document.getElementById('adminAccountPanelClose');
     refs.adminBroadcastCancel = document.getElementById('adminBroadcastCancel');
     refs.detailOverlay = document.getElementById('detailOverlay');
@@ -3286,6 +3379,22 @@
     if (refs.adminAccountPanelClose) {
       refs.adminAccountPanelClose.addEventListener('click', () => {
         if (refs.adminAccountPanel) refs.adminAccountPanel.hidden = true;
+      });
+    }
+
+    if (refs.adminLiveSearch) {
+      refs.adminLiveSearch.addEventListener('input', event => {
+        state.adminLiveSearch = String(event.target.value || '').trim();
+        state.adminLivePage = 1;
+        renderAdminLivePanel();
+      });
+    }
+
+    if (refs.adminAccountSearch) {
+      refs.adminAccountSearch.addEventListener('input', event => {
+        state.adminAccountSearch = String(event.target.value || '').trim();
+        state.adminAccountPage = 1;
+        renderAdminAccountsPanel();
       });
     }
 
